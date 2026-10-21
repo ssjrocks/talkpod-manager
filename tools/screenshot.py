@@ -19,8 +19,9 @@ tmp = Path(tempfile.mkdtemp(prefix="tpm-shot-"))
 os.environ["XDG_STATE_HOME"] = str(tmp / "state")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from talkpod_manager import paths, updater  # noqa: E402
+from talkpod_manager import appreports, paths, updater  # noqa: E402
 
+appreports.init = lambda *a, **k: None  # test runs must not send error reports
 paths.backups_dir = lambda: (tmp / "backups").mkdir(exist_ok=True) or tmp / "backups"
 updater.due = lambda: False
 

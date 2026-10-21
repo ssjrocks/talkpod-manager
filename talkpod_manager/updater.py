@@ -121,5 +121,31 @@ def install(update, progress=None):
     LOG.info("installed update %s", update.version)
 
 
+def sync_desktop_files():
+    """Refresh the desktop entry and icon install.sh copied, after an update changed them.
+
+    Only touches files that already exist (installed copies), keeping their Exec line.
+    """
+    data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+    pkg = Path(__file__).parent / "data"
+    from . import APP_ID
+
+    desktop = data / "applications" / f"{APP_ID}.desktop"
+    if desktop.exists():
+        current = desktop.read_text()
+        exec_line = next((ln for ln in current.splitlines() if ln.startswith("Exec=")), None)
+        new = (pkg / f"{APP_ID}.desktop").read_text()
+        if exec_line:
+            new = "\n".join(exec_line if ln.startswith("Exec=") else ln for ln in new.splitlines()) + "\n"
+        if new != current:
+            desktop.write_text(new)
+            LOG.info("updated %s", desktop)
+    icon = data / "icons/hicolor/scalable/apps" / f"{APP_ID}.svg"
+    src = pkg / "icons/hicolor/scalable/apps" / f"{APP_ID}.svg"
+    if icon.exists() and icon.read_bytes() != src.read_bytes():
+        icon.write_bytes(src.read_bytes())
+        LOG.info("updated %s", icon)
+
+
 def restart():
     os.execv(sys.executable, [sys.executable, "-m", "talkpod_manager"] + sys.argv[1:])

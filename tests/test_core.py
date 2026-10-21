@@ -121,3 +121,18 @@ def test_apply_setting_changes_only_that_setting(img):
 
 def test_8w_only_settings_hidden_on_5w_image(img):
     assert radio.missing_settings(img) == {"single_mode", "dis_s_table"}
+
+
+def test_sync_desktop_files_keeps_exec_line(tmp_path, monkeypatch):
+    from talkpod_manager import APP_ID, updater
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    apps = tmp_path / "applications"
+    apps.mkdir()
+    (apps / f"{APP_ID}.desktop").write_text("[Desktop Entry]\nExec=/opt/x/talkpod-manager %F\nCategories=Old;\n")
+    updater.sync_desktop_files()
+    text = (apps / f"{APP_ID}.desktop").read_text()
+    assert "Exec=/opt/x/talkpod-manager %F" in text
+    assert "Categories=Network;HamRadio;" in text
+    # nothing installed -> nothing created
+    assert not (tmp_path / "icons").exists()

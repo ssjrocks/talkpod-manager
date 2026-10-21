@@ -8,7 +8,7 @@ from pathlib import Path
 from . import ui  # noqa: F401  (gi version requirements)
 from gi.repository import Adw, Gdk, Gio, Gtk
 
-from . import APP_ID, APP_NAME, REPO, __version__, appreports, paths
+from . import APP_ID, APP_NAME, REPO, __version__, appreports, paths, updater
 from .ui.window import MainWindow
 
 LOG = logging.getLogger("talkpod_manager")
@@ -44,6 +44,11 @@ class App(Adw.Application):
         theme.add_search_path(str(Path(__file__).parent / "data" / "icons"))
         appreports.init(APP_ID, APP_NAME, __version__, paths.state_dir(), log_file=paths.log_file(),
                         version_code=version_code(__version__))
+        if updater.installed_in_venv():
+            try:
+                updater.sync_desktop_files()
+            except OSError:
+                LOG.exception("couldn't refresh the desktop entry")
         for name, fn, accels in [
             ("about", self.about, []),
             ("quit", lambda: self.get_active_window() and self.get_active_window().close(), ["<Control>q"]),
