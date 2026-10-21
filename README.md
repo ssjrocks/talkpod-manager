@@ -12,7 +12,9 @@ and **A36plus** handheld radios over the K-plug programming cable.
 - **Channel editor**: name, frequencies, repeater offset or split, CTCSS/DCS, power, bandwidth, scan,
   busy lock, PTT-ID, scrambler. Search and filter the list.
 - **Radio settings**: the radio's menu items (squelch, time-out timer, side keys, VOX, backlight,
-  scan resume, power-on message, DTMF/ANI codes, custom channel names, ...).
+  scan resume, power-on message, DTMF/ANI codes, custom channel names, ...). Hover over any setting
+  for a plain-language explanation and when you'd change it; the radio's own menu number is shown
+  under each one. The channel editor's fields have the same help.
 - **Channel plans**: one click for the Australian 80-channel UHF CB plan, with repeater (duplex)
   copies of channels 1–8 and 41–48 at 101–108 / 141–148 (or 401–448), and everything else cleared so
   the radio's arrow keys only step through the plan.
@@ -22,9 +24,9 @@ and **A36plus** handheld radios over the K-plug programming cable.
   `~/Documents/Talkpod Manager/Backups`. Images are CHIRP `.img` files, so CHIRP opens them too.
 - **CSV import/export** in CHIRP's CSV format (works with CHIRP and RepeaterBook exports).
 
-| Channel editor | Boot logo | Channel plan |
-|---|---|---|
-| ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/channel-plan.png) |
+| Settings, with hover help | Channel editor | Boot logo | Channel plan |
+|---|---|---|---|
+| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/channel-plan.png) |
 
 ## Supported radios
 

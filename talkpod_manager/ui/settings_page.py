@@ -25,7 +25,9 @@ class SettingsPage(Gtk.Box):
             self.remove(self.page)
         self.page = Adw.PreferencesPage(vexpand=True)
         intro = Adw.PreferencesGroup(
-            description="Changes here go into the radio's image; use Write to send them to the radio.")
+            description="Hover over a setting to see what it does and when you'd change it. "
+                        "“Radio menu” numbers match the menu on the radio. Changes here go into the "
+                        "editor; use Write to send them to the radio.")
         self.page.add(intro)
         self.settings = radio.get_settings()
         hidden = rio.missing_settings(radio)

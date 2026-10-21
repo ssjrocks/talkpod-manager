@@ -4,6 +4,7 @@ import logging
 
 from gi.repository import Adw, Gtk
 
+from .. import descriptions
 from .. import radio as _radio  # noqa: F401  (sets CHIRP_TESTENV before chirp is imported)
 from chirp import settings as cs
 
@@ -18,13 +19,16 @@ def _apply(setting, value, row, on_change):
         row.set_tooltip_text(str(e))
         return
     row.remove_css_class("error")
-    row.set_tooltip_text(setting.__doc__ or None)
+    row.set_tooltip_markup(getattr(row, "help_markup", None))
     if on_change:
         on_change(setting)
 
 
-def row_for(setting, on_change=None):
-    """An editable row for one setting, or a read-only row for kinds it can't edit."""
+def row_for(setting, on_change=None, help_table=None):
+    """An editable row for one setting, or a read-only row for kinds it can't edit.
+
+    Hovering shows what the setting does (descriptions.py); help_table picks the table
+    (default: radio settings; descriptions.EXTRAS for per-channel extras)."""
     title = setting.get_shortname()
     if len(setting) != 1:
         return Adw.ActionRow(title=title, subtitle=", ".join(str(v) for v in setting.value))
@@ -58,7 +62,10 @@ def row_for(setting, on_change=None):
         row = Adw.ActionRow(title=title, subtitle=str(v))
 
     row.set_sensitive(v.get_mutable())
-    if setting.__doc__:
+    h = descriptions.lookup(setting.get_name(), help_table)
+    if h:
+        descriptions.apply(row, title, h)
+    elif setting.__doc__:
         row.set_tooltip_text(setting.__doc__)
     return row
 
@@ -67,7 +74,8 @@ def add_group(page, group, on_change, collapse_over=None, title=None, skip=()):
     """Add a RadioSettingGroup to an Adw.PreferencesPage. Groups longer than collapse_over go in
     an expander so the page stays scannable."""
     items = [el for el in group if el.get_name() not in skip]
-    pg = Adw.PreferencesGroup(title=title or group.get_shortname())
+    pg = Adw.PreferencesGroup(title=title or group.get_shortname(),
+                              description=descriptions.GROUPS.get(group.get_name()))
     page.add(pg)
     target = pg
     if collapse_over is not None and len(items) > collapse_over:

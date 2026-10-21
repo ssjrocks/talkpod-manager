@@ -2,7 +2,7 @@
 
 from gi.repository import Adw, Gtk
 
-from .. import channels
+from .. import channels, descriptions
 from .. import radio as _radio  # noqa: F401
 from chirp import chirp_common
 
@@ -125,7 +125,12 @@ class ChannelDialog(Adw.Dialog):
         g.add(self.scan)
         if m.extra:
             for s in m.extra:
-                g.add(settingrows.row_for(s))
+                g.add(settingrows.row_for(s, help_table=descriptions.EXTRAS))
+
+        for key, row in [("name", self.name), ("rx", self.rx), ("duplex", self.duplex), ("offset", self.offset),
+                         ("power", self.power), ("tmode", self.tmode), ("tone", self.tone), ("dcs", self.dcs),
+                         ("pol", self.pol), ("width", self.width), ("scan", self.scan)]:
+            descriptions.apply(row, row.get_title(), descriptions.FIELDS[key])
 
         self.error = Gtk.Label(wrap=True, xalign=0, visible=False)
         self.error.add_css_class("error")
