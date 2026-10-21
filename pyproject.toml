@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "talkpod-manager"
+dynamic = ["version"]
+description = "Program, configure and back up Talkpod A36SE / A36plus radios (GTK4 desktop app)"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10"
+dependencies = [
+    "pyserial",
+    # CHIRP isn't on PyPI; pinned to a tested commit. Its A36plus driver does the radio protocol.
+    "chirp @ git+https://github.com/kk7ds/chirp@0bfb2b50e33dcaab59c380238f34e053d95dfd50",
+]
+
+[project.gui-scripts]
+talkpod-manager = "talkpod_manager.app:main"
+
+[project.urls]
+Homepage = "https://github.com/ssjrocks/talkpod-manager"
+Issues = "https://github.com/ssjrocks/talkpod-manager/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "talkpod_manager.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["talkpod_manager*"]
+
+[tool.setuptools.package-data]
+talkpod_manager = ["data/**/*"]
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::DeprecationWarning"]

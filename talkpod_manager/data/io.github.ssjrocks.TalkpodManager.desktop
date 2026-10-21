@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Talkpod Manager
+GenericName=Radio Programmer
+Comment=Program, configure and back up Talkpod A36SE / A36plus radios
+Exec=talkpod-manager %F
+Icon=io.github.ssjrocks.TalkpodManager
+Terminal=false
+Categories=Utility;Network;HamRadio;
+Keywords=radio;talkpod;a36se;a36plus;uhf;cb;chirp;walkie;talkie;programming;
+StartupNotify=true
