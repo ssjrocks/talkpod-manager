@@ -8,6 +8,7 @@ State and backups go to a temporary folder; nothing touches a radio.
 """
 
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -93,4 +94,6 @@ class ShotApp(App):
         GLib.timeout_add(500, run_next)
 
 
-sys.exit(ShotApp().run([sys.argv[0]]))
+code = ShotApp().run([sys.argv[0]])
+shutil.rmtree(tmp, ignore_errors=True)
+sys.exit(code)
