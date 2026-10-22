@@ -74,6 +74,32 @@ offers to change that.
 - "The radio didn't answer": the plug isn't fully in (it needs a firm push through the rubber
   cover), the radio is off, or the volume is at zero.
 
+## Firmware updates (command line)
+
+`talkpod-firmware` flashes `.kdhx` firmware files over the programming cable on Linux, the way
+Talkpod's Windows "KDH Bootloader" tool does it (no Windows needed):
+
+```bash
+talkpod-firmware info  FIRMWARE.kdhx    # check a file without touching the radio
+talkpod-firmware flash FIRMWARE.kdhx    # identify the radio, confirm, flash
+```
+
+It restarts the radio into its bootloader by itself. If an update is interrupted, switch the radio
+on while holding the side keys (white screen) and run `flash` again with `--manual`; the bootloader
+itself is never overwritten. It refuses files that aren't A36plus firmware, and 8 W / MAX firmware
+on a 5 W radio. Tested on an A36SE (official 1.26 to VR2TE's 1.22S): channels and settings survived
+the firmware change, but save a backup first anyway.
+
+Before flashing anything:
+
+- **Firmware can't be read back** from the radio, so there's no backup of what you have now.
+- **Region builds:** Talkpod publishes international/GMRS/PMR builds only. An Australian (UHF CB)
+  A36SE runs an unpublished build; once replaced, its CB-only lock can't be restored.
+- **Third-party builds** such as [VR2TE's "Super" firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware)
+  (wider transmit/receive ranges) are untested research builds. Their author warns that
+  transmitting below 108 MHz for more than 3 seconds destroys the power amplifier.
+- Transmitting outside the bands your radio is approved for, or you're licensed for, is illegal.
+
 ## Updates and problem reports
 
 - **Updates**: the app checks this repository's latest release at most every 12 hours and offers to

@@ -19,7 +19,7 @@ ICON="$DATA/icons/hicolor/scalable/apps/$APP_ID.svg"
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   rm -rf "$ROOT"
-  rm -f "$BIN/talkpod-manager" "$DESKTOP" "$ICON"
+  rm -f "$BIN/talkpod-manager" "$BIN/talkpod-firmware" "$DESKTOP" "$ICON"
   update-desktop-database -q "$DATA/applications" 2>/dev/null || true
   echo "Talkpod Manager removed (backups in ~/Documents/Talkpod Manager were kept)."
   exit 0
@@ -73,6 +73,8 @@ cat > "$BIN/talkpod-manager" <<EOF
 exec "$VENV/bin/python" -m talkpod_manager "\$@"
 EOF
 chmod +x "$BIN/talkpod-manager"
+printf '#!/bin/sh\nexec "%s/bin/python" -m talkpod_manager.firmware "$@"\n' "$VENV" > "$BIN/talkpod-firmware"
+chmod +x "$BIN/talkpod-firmware"
 pkg=$("$VENV/bin/python" -c 'import talkpod_manager, os; print(os.path.dirname(talkpod_manager.__file__))')
 sed "s|^Exec=.*|Exec=$BIN/talkpod-manager %F|" "$pkg/data/$APP_ID.desktop" > "$DESKTOP"
 cp "$pkg/data/icons/hicolor/scalable/apps/$APP_ID.svg" "$ICON"

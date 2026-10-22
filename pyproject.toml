@@ -18,6 +18,9 @@ dependencies = [
 [project.gui-scripts]
 talkpod-manager = "talkpod_manager.app:main"
 
+[project.scripts]
+talkpod-firmware = "talkpod_manager.firmware:main"
+
 [project.urls]
 Homepage = "https://github.com/ssjrocks/talkpod-manager"
 Issues = "https://github.com/ssjrocks/talkpod-manager/issues"
