@@ -74,6 +74,21 @@ def _open(port, baud=57600, timeout=0.5):
         raise RadioError(f"Couldn't open {port}: {e}") from e
 
 
+def enter_program_mode(s, magic=MAGIC, tries=5):
+    """Send the programming handshake until the radio ACKs. Returns True on success.
+
+    Custom firmware may be partway through a line of debug output when the handshake arrives, so
+    bytes before the ACK are skipped; a retry can leave a second ACK, so the input is cleared after."""
+    s.reset_input_buffer()
+    for _ in range(tries):
+        s.write(magic)
+        if s.read_until(ACK, 64).endswith(ACK):
+            time.sleep(0.05)
+            s.reset_input_buffer()
+            return True
+    return False
+
+
 # Custom firmware built for these radios (github.com/ssjrocks a36se-fw) identifies itself with this
 # prefix instead of a stock fingerprint. It can be flashed, but holds no CHIRP-format memory.
 CUSTOM_FIRMWARE_PREFIX = b"A36CFW"
@@ -84,14 +99,7 @@ def identify(port, allow_custom=False):
 
     allow_custom: also accept custom firmware (reported as the A36plus 5 W model), for flashing."""
     with _open(port, timeout=1.0) as s:
-        s.reset_input_buffer()
-        ack = b""
-        for _ in range(5):
-            s.write(MAGIC)
-            ack = s.read(1)
-            if ack == ACK:
-                break
-        if ack != ACK:
+        if not enter_program_mode(s):
             raise RadioError(
                 "The radio didn't answer. Check that it's switched on, the cable is pushed fully "
                 "into the radio's side jack, and the volume isn't at zero."

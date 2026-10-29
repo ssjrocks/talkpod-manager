@@ -160,12 +160,7 @@ def _exchange(s, packet, cmd, what, tries=5, timeout=2.0):
 def _enter_bootloader(port):
     """Ask the running radio firmware to restart into its bootloader (Talkpod's AUTO UPDATE)."""
     with rio._open(port, 57600, timeout=2.0) as s:
-        s.reset_input_buffer()
-        for _ in range(5):
-            s.write(b"PROGRAM" + b"JC37" + b"U")
-            if s.read(1) == rio.ACK:
-                break
-        else:
+        if not rio.enter_program_mode(s, b"PROGRAM" + b"JC37" + b"U"):
             raise FirmwareError("The radio didn't answer. Check it's switched on and the cable is pushed in.")
         s.write(b"UPDATE")
         if s.read(1) != rio.ACK:

@@ -55,6 +55,11 @@ class FakeSerial:
         del self.out[:n]
         return data
 
+    def read_until(self, expected=b"\n", size=None):
+        i = self.out.find(expected)
+        n = len(self.out) if i < 0 else i + len(expected)
+        return self.read(n if size is None else min(n, size))
+
     def write(self, data):
         f = self.fake
         if self.baud == 57600:

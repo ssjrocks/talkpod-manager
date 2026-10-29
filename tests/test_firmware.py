@@ -21,6 +21,7 @@ def fake_image(size=63 * 1024):
 
 class FakeRadio:
     ident = IDENT_126
+    chatter = b""           # debug output custom firmware may send just before its ACK
 
     def __init__(self, fail_block=None, error=None):
         self.state = "app"
@@ -60,15 +61,20 @@ class FakeSerial:
         del self.out[:n]
         return d
 
+    def read_until(self, expected=b"\n", size=None):
+        i = self.out.find(expected)
+        n = len(self.out) if i < 0 else i + len(expected)
+        return self.read(n if size is None else min(n, size))
+
     def write(self, data):
         f = self.f
         if self.baud == 57600:
             if data == radio.MAGIC:          # identify()
-                self.out += radio.ACK
+                self.out += f.chatter + radio.ACK
             elif data == b"F":
                 self.out += f.ident
             elif data == b"PROGRAMJC37U":
-                self.out += radio.ACK
+                self.out += f.chatter + radio.ACK
             elif data == b"UPDATE":
                 f.state = "boot-pending"
                 self.out += radio.ACK
@@ -151,3 +157,9 @@ def test_custom_firmware_is_flashable_but_not_programmable(fake):
     assert cls is radio.mml_jc8810.A36plusRadio and ident == b"A36CFW01"
     with pytest.raises(radio.RadioError, match="custom firmware"):
         radio.identify("/dev/fake")
+
+
+def test_debug_output_before_ack_is_skipped(fake):
+    # custom firmware's heartbeat line was once read as the identification
+    fake.ident, fake.chatter = b"A36CFW01", b"beat 00000002\r\n"
+    assert radio.identify("/dev/fake", allow_custom=True)[1] == b"A36CFW01"
