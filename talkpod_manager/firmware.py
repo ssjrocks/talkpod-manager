@@ -229,8 +229,9 @@ def main(argv=None):
         print("No programming cable found.")
         return 1
     if not args.manual:
-        cls, ident = rio.identify(port)
-        print(f"Radio on {port}: {rio.describe_model(cls)}, identification {ident.hex(' ')}")
+        cls, ident = rio.identify(port, allow_custom=True)
+        custom = " (custom firmware)" if ident.startswith(rio.CUSTOM_FIRMWARE_PREFIX) else ""
+        print(f"Radio on {port}: {rio.describe_model(cls)}{custom}, identification {ident.hex(' ')}")
         check_for_radio(image, cls)
     else:
         check_for_radio(image, rio.mml_jc8810.A36plusRadio)

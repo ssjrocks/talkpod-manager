@@ -20,6 +20,8 @@ def fake_image(size=63 * 1024):
 
 
 class FakeRadio:
+    ident = IDENT_126
+
     def __init__(self, fail_block=None, error=None):
         self.state = "app"
         self.blocks = {}
@@ -64,7 +66,7 @@ class FakeSerial:
             if data == radio.MAGIC:          # identify()
                 self.out += radio.ACK
             elif data == b"F":
-                self.out += IDENT_126
+                self.out += f.ident
             elif data == b"PROGRAMJC37U":
                 self.out += radio.ACK
             elif data == b"UPDATE":
@@ -141,3 +143,11 @@ def test_max_image_refused_for_5w():
     big = firmware.Image(fake_image(100 * 1024), "max.kdhx")
     with pytest.raises(firmware.FirmwareError, match="too big"):
         firmware.check_for_radio(big, radio.mml_jc8810.A36plusRadio)
+
+
+def test_custom_firmware_is_flashable_but_not_programmable(fake):
+    fake.ident = b"A36CFW01"
+    cls, ident = radio.identify("/dev/fake", allow_custom=True)
+    assert cls is radio.mml_jc8810.A36plusRadio and ident == b"A36CFW01"
+    with pytest.raises(radio.RadioError, match="custom firmware"):
+        radio.identify("/dev/fake")

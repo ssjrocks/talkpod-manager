@@ -74,8 +74,15 @@ def _open(port, baud=57600, timeout=0.5):
         raise RadioError(f"Couldn't open {port}: {e}") from e
 
 
-def identify(port):
-    """Handshake only. Returns (CHIRP radio class, 8-byte ident). Leaves programming mode."""
+# Custom firmware built for these radios (github.com/ssjrocks a36se-fw) identifies itself with this
+# prefix instead of a stock fingerprint. It can be flashed, but holds no CHIRP-format memory.
+CUSTOM_FIRMWARE_PREFIX = b"A36CFW"
+
+
+def identify(port, allow_custom=False):
+    """Handshake only. Returns (CHIRP radio class, 8-byte ident). Leaves programming mode.
+
+    allow_custom: also accept custom firmware (reported as the A36plus 5 W model), for flashing."""
     with _open(port, timeout=1.0) as s:
         s.reset_input_buffer()
         ack = b""
@@ -96,6 +103,12 @@ def identify(port):
     for cls in MODELS:
         if ident in cls._fingerprint:
             return cls, ident
+    if ident.startswith(CUSTOM_FIRMWARE_PREFIX):
+        if allow_custom:
+            return mml_jc8810.A36plusRadio, ident
+        raise RadioError(
+            f"The radio runs custom firmware ({ident.decode('ascii', 'replace')}), which can be "
+            "flashed with talkpod-firmware but doesn't hold channels this app can read.")
     raise RadioError(
         "The radio answered but reported an unknown firmware "
         f"(identification {ident.hex(' ')}). This app supports Talkpod A36plus / A36SE "
