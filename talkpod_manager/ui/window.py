@@ -12,6 +12,7 @@ from . import worker
 from .backups_page import BackupsPage
 from .channel_dialog import ChannelDialog
 from .channels_page import ChannelsPage
+from .firmware_dialog import FirmwareDialog
 from .logo_page import LogoPage
 from .plan_dialog import PlanDialog
 from .settings_page import SettingsPage
@@ -78,6 +79,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.splash_page.connect("send-requested", lambda *_: self.send_splash())
         self.splash_page.connect("play-requested", lambda *_: self.play_splash())
         self.splash_page.connect("remove-requested", lambda *_: self.remove_splash())
+        self.splash_page.connect("firmware-requested", lambda *_: self.activate_action("win.firmware"))
         self.backups_page = BackupsPage()
         self.backups_page.connect("open-requested", lambda _p, path: self.confirm_discard(lambda: self.open_image(path)))
         self.backups_page.connect("save-requested", lambda *_: self.save_backup())
@@ -143,6 +145,7 @@ class MainWindow(Adw.ApplicationWindow):
         m.append_section(None, files)
         tools = Gio.Menu()
         tools.append("Channel plan…", "win.plan")
+        tools.append("Flash firmware…", "win.firmware")
         m.append_section(None, tools)
         help_ = Gio.Menu()
         help_.append("Check for updates", "win.check-updates")
@@ -156,6 +159,7 @@ class MainWindow(Adw.ApplicationWindow):
         for name, fn in [
             ("read", self.read), ("write", self.write), ("open", self.open_dialog), ("save-as", self.save_as),
             ("import-csv", self.import_csv), ("export-csv", self.export_csv), ("plan", self.plan),
+            ("firmware", self.flash_firmware),
             ("check-updates", lambda: self.check_updates(manual=True)), ("report", self.report_problem),
         ]:
             a = Gio.SimpleAction(name=name)
@@ -198,6 +202,7 @@ class MainWindow(Adw.ApplicationWindow):
         for name in ("save-as", "export-csv", "import-csv", "plan"):
             self.acts[name].set_enabled(has_radio and not self.busy)
         self.acts["open"].set_enabled(not self.busy)
+        self.acts["firmware"].set_enabled(not self.busy)
         if self.dirty:
             self.write_btn.add_css_class("suggested-action")
         else:
@@ -359,6 +364,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.alert("Picture sent",
                    "Switch the radio off and on to see it. If it shows the battery voltage instead, set menu 49 "
                    "(Power On Message) to Logo, or use “Show logo” on this page and Write.")
+
+    def flash_firmware(self):
+        FirmwareDialog(self).present(self)
 
     def send_splash(self):
         s = self.splash_page.splash

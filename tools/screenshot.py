@@ -75,6 +75,9 @@ class ShotApp(App):
             lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
             lambda: win.stack.set_visible_child_name("backups"),
             lambda: capture(win, "6-backups"),
+            lambda: win.flash_firmware(),
+            lambda: capture(win, "7-firmware"),
+            lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
             lambda: self.quit(),
         ]
 

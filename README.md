@@ -24,20 +24,25 @@ and **A36plus** handheld radios over the K-plug programming cable.
   that the radio plays once when it's switched on. Pictures that aren't 128 × 128 are resized the
   way you choose (shrink to fit, shrink or enlarge to fit, stretch, crop), with an animated preview
   in the radio's colours and how much of the radio's 768 KB it takes.
+- **Firmware**: flash firmware from the app (main menu → **Flash firmware…**). Ready to flash:
+  [Talkpod Super Firmware](https://github.com/ssjrocks/talkpod-super-firmware) and VR2TE's "Super"
+  builds of Talkpod's firmware, each downloaded from its author's GitHub and checked before it's
+  sent. Any `.kdhx` file works too, and there are links to Talkpod's own firmware downloads.
 - **Backups**: automatic ones before and after every write, plus manual saves, in
   `~/Documents/Talkpod Manager/Backups`. Images are CHIRP `.img` files, so CHIRP opens them too.
 - **CSV import/export** in CHIRP's CSV format (works with CHIRP and RepeaterBook exports).
 
-| Settings, with hover help | Channel editor | Boot logo | Boot splash | Channel plan |
-|---|---|---|---|---|
-| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/boot-splash.png) | ![](docs/screenshots/channel-plan.png) |
+| Settings, with hover help | Channel editor | Boot logo | Boot splash | Channel plan | Flash firmware |
+|---|---|---|---|---|---|
+| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/boot-splash.png) | ![](docs/screenshots/channel-plan.png) | ![](docs/screenshots/flash-firmware.png) |
 
 ## Supported radios
 
 Talkpod A36SE (5 W; US GMRS, Australian UHF CB and international versions) and A36plus 5 W / 8 W
 (A36plus MAX), with the firmware versions [CHIRP](https://chirpmyradio.com) supports (tested on an
 Australian A36SE with firmware 1.26). The radio's firmware decides which frequencies it will
-transmit on; this app doesn't change that.
+transmit on. Read and Write work with Talkpod's firmware and VR2TE's builds of it, not with Talkpod
+Super Firmware (program the channels first; they stay on the radio).
 
 The radio protocol and memory layout come from CHIRP's `mml_jc8810` driver, which this app uses as
 a library. The boot-logo protocol was worked out from Talkpod's Windows "Import Picture" tool
@@ -105,10 +110,29 @@ The splash format and the firmware's serial commands are described in
 - "The radio didn't answer": the plug isn't fully in (it needs a firm push through the rubber
   cover), the radio is off, or the volume is at zero.
 
-## Firmware updates (command line)
+## Firmware
 
-`talkpod-firmware` flashes `.kdhx` firmware files over the programming cable on Linux, the way
-Talkpod's Windows "KDH Bootloader" tool does it (no Windows needed):
+**Flash firmware…** in the main menu flashes over the programming cable, the way Talkpod's Windows
+"KDH Bootloader" tool does it (no Windows needed). Choose one of these ready-to-flash builds:
+
+| Build | From | What it is |
+|---|---|---|
+| **Talkpod Super Firmware** (newest release) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch: dual-watch interface, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
+
+No third-party firmware is copied into this app.
+- **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
+  against the SHA-256 GitHub publishes with it. A copy of 1.0 comes with the app for use offline.
+- **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
+  pinned in the app. A changed file is refused.
+- **Your own file:** "A firmware file" takes any `.kdhx`.
+
+**Stock firmware** comes from Talkpod: [talkpodonline.com → Firmware / Software](https://talkpodonline.com/pages/firmware-software)
+(also linked from [talkpod.com](https://talkpod.com/pages/firmware_driver)). The A36plus 5 W / A36SE
+builds are `.zip` / `.rar` archives: unpack one and choose the `.kdhx` inside as "A firmware file".
+The dialog has these links.
+
+The same flasher runs from the command line:
 
 ```bash
 talkpod-firmware info  FIRMWARE.kdhx    # check a file without touching the radio
@@ -116,8 +140,9 @@ talkpod-firmware flash FIRMWARE.kdhx    # identify the radio, confirm, flash
 ```
 
 It restarts the radio into its bootloader by itself. If an update is interrupted, switch the radio
-on while holding the side keys (white screen) and run `flash` again with `--manual`; the bootloader
-itself is never overwritten. It refuses files that aren't A36plus firmware, and 8 W / MAX firmware
+on while holding the side keys (white screen) and flash again with "The radio shows the white
+bootloader screen" turned on (`--manual` on the command line); the bootloader itself is never
+overwritten. It refuses files that aren't A36plus firmware, and 8 W / MAX firmware
 on a 5 W radio. Tested on an A36SE (official 1.26 to VR2TE's 1.22S): channels and settings survived
 the firmware change, but save a backup first anyway.
 

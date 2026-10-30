@@ -58,6 +58,7 @@ class SplashPage(Gtk.Box):
         "send-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "play-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "remove-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
+        "firmware-requested": (GObject.SignalFlags.RUN_FIRST, None, ()),
     }
 
     def __init__(self):
@@ -144,9 +145,13 @@ class SplashPage(Gtk.Box):
 
         g = Adw.PreferencesGroup(title="Limits")
         page.add(g)
-        for title, text in LIMITS:
+        for i, (title, text) in enumerate(LIMITS):
             row = Adw.ActionRow(title=title, subtitle=text, activatable=False)
             row.add_prefix(Gtk.Image(icon_name="dialog-information-symbolic"))
+            if i == 0:                  # the firmware itself: offered in Flash firmware…
+                get = Gtk.Button(label="Get it…", valign=Gtk.Align.CENTER)
+                get.connect("clicked", lambda *_: self.emit("firmware-requested"))
+                row.add_suffix(get)
             g.add(row)
 
         self.connect("map", lambda *_: self._animate())
