@@ -22,7 +22,7 @@ def test_bundled_super_firmware_is_valid_and_offline(monkeypatch):
     monkeypatch.setattr(fc, "_get", no_network)
     image = fc.fetch(fc.TSF)
     assert hashlib.sha256(image.data).hexdigest() == fc.TSF.sha256
-    assert image.version == "V1.00" and not image.problems
+    assert image.version == "V1.10" and not image.problems
 
 
 def test_every_build_comes_from_a_trusted_place_with_a_checksum():
@@ -67,14 +67,19 @@ def release(tag, name, digest, url=None):
 
 
 def test_latest_release_is_offered(monkeypatch):
-    monkeypatch.setattr(fc, "_get", lambda url, *a, **k: release("v1.1", "tsf-1.1.kdhx", "sha256:" + "ab" * 32))
+    monkeypatch.setattr(fc, "_get", lambda url, *a, **k: release("v1.2", "tsf-1.2.kdhx", "sha256:" + "ab" * 32))
     b = fc.latest_tsf()
-    assert (b.version, b.filename, b.sha256, b.bundled) == ("1.1", "tsf-1.1.kdhx", "ab" * 32, "")
-    assert b.url.endswith("/v1.1/tsf-1.1.kdhx")
+    assert (b.version, b.filename, b.sha256, b.bundled) == ("1.2", "tsf-1.2.kdhx", "ab" * 32, "")
+    assert b.url.endswith("/v1.2/tsf-1.2.kdhx")
+
+
+def test_an_older_release_than_the_bundled_copy_isnt_offered(monkeypatch):
+    monkeypatch.setattr(fc, "_get", lambda url, *a, **k: release("v1.0", "tsf-1.0.kdhx", "sha256:" + "cd" * 32))
+    assert fc.latest_tsf() == fc.TSF
 
 
 def test_latest_release_that_is_the_bundled_one_uses_the_copy(monkeypatch):
-    monkeypatch.setattr(fc, "_get", lambda url, *a, **k: release("v1.0", fc.TSF.filename, "sha256:" + fc.TSF.sha256))
+    monkeypatch.setattr(fc, "_get", lambda url, *a, **k: release("v1.1", fc.TSF.filename, "sha256:" + fc.TSF.sha256))
     assert fc.latest_tsf().bundled == fc.TSF.bundled
 
 

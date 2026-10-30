@@ -3,8 +3,8 @@
 No third-party firmware is copied into this app. A build is downloaded from its author's GitHub
 when it's chosen, and it must match a SHA-256 before it goes anywhere near a radio:
 - Talkpod Super Firmware: the newest release of ssjrocks/talkpod-super-firmware, checked against
-  the digest GitHub publishes with the release asset. A copy of 1.0 ships with the app for when
-  there is no internet.
+  the digest GitHub publishes with the release asset. A copy of 1.1 ships with the app for when
+  there is no internet (and is offered whenever GitHub only has older releases).
 - VR2TE's "Super" builds of Talkpod's firmware: files from a pinned commit of
   VR2TE/Talkpod-A36plus-Firmware, checked against checksums pinned here. Talkpod's own firmware
   page links that repository.
@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from importlib import resources
 
 from . import __version__, paths
+from .updater import parse_version
 from .firmware import Image
 from .radio import RadioError
 
@@ -57,20 +58,21 @@ class Build:
 TSF = Build(
     key="tsf",
     title="Talkpod Super Firmware",
-    version="1.0",
+    version="1.1",
     page=TSF_PAGE,
     summary="New firmware written from scratch: dual-watch interface, FM/AM receive, wide transmit range "
-            "(108–138 and 406.0–406.1 MHz blocked), UV-K5-compatible text messages, APRS, POCSAG pager and an "
-            "animated boot splash. Reads the channels already on the radio; no CTCSS/DCS.",
-    warning="Talkpod Super Firmware can't be programmed with Read and Write: program the channels first "
-            "(they stay on the radio). To change them later, flash stock or VR2TE firmware, Write, and flash "
-            "this back. It transmits across the chip's whole range except the blocked bands, so stay within "
-            "your licence.",
-    after="The radio restarts with Talkpod Super Firmware. The Splash page can now give it a boot animation.",
-    url=f"https://github.com/{TSF_REPO}/releases/download/v1.0/talkpod-super-firmware-v1.0.kdhx",
-    sha256="10c54d8fe3dbed26b4d98c67bf4672848740ce7ca4c36d8d02cbe408c39411c5",
-    filename="talkpod-super-firmware-v1.0.kdhx",
-    bundled="talkpod-super-firmware-v1.0.kdhx",
+            "(108–138 and 406.0–406.1 MHz blocked), CTCSS/DCS, repeater shifts, UV-K5-compatible text messages, "
+            "APRS, POCSAG pager and an animated boot splash. Read and Write keep working; it keeps its own "
+            "settings, set from the radio's menu.",
+    warning="It transmits across the chip's whole range except the blocked bands, so stay within your licence. "
+            "The stock menu settings (VOX, roger beep, side keys and so on) aren't used by this version yet; "
+            "they stay on the radio for stock firmware.",
+    after="The radio restarts with Talkpod Super Firmware. Read works as before, and the Splash page can now "
+          "give it a boot animation.",
+    url=f"https://github.com/{TSF_REPO}/releases/download/v1.1/talkpod-super-firmware-v1.1.kdhx",
+    sha256="ce2b512e1f6021bc7640af99f1b66838e8710c887e9d298e48c41cdc52588784",
+    filename="talkpod-super-firmware-v1.1.kdhx",
+    bundled="talkpod-super-firmware-v1.1.kdhx",
 )
 
 _VR2TE_SUMMARY = ("VR2TE's research build of Talkpod's own firmware, with wider ranges: transmit 18–108, 136–350 and "
@@ -120,10 +122,12 @@ def _get(url, timeout=20, limit=MAX_BYTES, accept=None, progress=None):
 
 def latest_tsf(timeout=10):
     """The newest Talkpod Super Firmware release, or the copy that ships with the app when GitHub
-    can't be reached or the release has no usable firmware file."""
+    can't be reached, only has older releases, or the release has no usable firmware file."""
     try:
         rel = json.loads(_get(f"https://api.github.com/repos/{TSF_REPO}/releases/latest", timeout,
                               limit=1024 * 1024, accept="application/vnd.github+json"))
+        if parse_version(rel["tag_name"]) < parse_version(TSF.version):
+            return TSF                          # GitHub has only older releases
         for a in rel.get("assets", []):
             digest = a.get("digest") or ""
             if a["name"].endswith(".kdhx") and digest.startswith("sha256:") and _trusted(a["browser_download_url"]):

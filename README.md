@@ -41,8 +41,11 @@ and **A36plus** handheld radios over the K-plug programming cable.
 Talkpod A36SE (5 W; US GMRS, Australian UHF CB and international versions) and A36plus 5 W / 8 W
 (A36plus MAX), with the firmware versions [CHIRP](https://chirpmyradio.com) supports (tested on an
 Australian A36SE with firmware 1.26). The radio's firmware decides which frequencies it will
-transmit on. Read and Write work with Talkpod's firmware and VR2TE's builds of it, not with Talkpod
-Super Firmware (program the channels first; they stay on the radio).
+transmit on. Read and Write work with Talkpod's firmware, VR2TE's builds of it and Talkpod Super
+Firmware 1.1 and later. All of them keep channels in the same layout, so images move between them.
+The app shows which firmware it read and greys out what that firmware doesn't use (the data stays):
+- Super Firmware 1.1 ignores channel encryption and PTT-ID;
+- it keeps its own settings instead of the stock menu settings.
 
 The radio protocol and memory layout come from CHIRP's `mml_jc8810` driver, which this app uses as
 a library. The boot-logo protocol was worked out from Talkpod's Windows "Import Picture" tool
@@ -90,8 +93,10 @@ radio**. The radio must be switched on with the cable in; it doesn't need to be 
 - **Background** fills the bars and transparent parts.
 - A still picture is shown for the time you choose.
 - **Frames** can skip every 2nd or 3rd frame of a big animation, keeping its length.
+- **Play it** repeats an animation 2–10 times without taking more room (Super Firmware 1.1+; for 1.0
+  the repeats are written out). **Hold the last frame** keeps its end on screen longer.
 - Limits:
-  - up to 15 s (longer animations are cut) and 768 KB;
+  - up to 15 s of animation (longer ones are cut) and 500 KB;
   - each frame up to 256 colours;
   - frames of at least 20 ms.
 
@@ -117,7 +122,7 @@ The splash format and the firmware's serial commands are described in
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch: dual-watch interface, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.1 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch: dual-watch interface, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
