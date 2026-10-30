@@ -67,8 +67,9 @@ class LogoPage(Gtk.Box):
 
         g = Adw.PreferencesGroup(
             title="Boot logo",
-            description="The 128 × 128 picture the radio shows when it's switched on. "
-                        "The radio can't send its current picture back, so keep a copy of anything you want to restore.")
+            description="For stock firmware: the 128 × 128 picture the radio shows when it's switched on. "
+                        "The radio can't send its current picture back, so keep a copy of anything you want to restore. "
+                        "Radios with Talkpod Super Firmware play an animation instead: see the Splash page.")
         page.add(g)
         frame = Gtk.Frame(halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=12)
         self.picture = Gtk.Picture(can_shrink=False, width_request=PREVIEW, height_request=PREVIEW)

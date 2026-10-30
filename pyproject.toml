@@ -11,6 +11,7 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.10"
 dependencies = [
     "pyserial",
+    "pillow",                       # boot splash: GIF / APNG / WebP frames
     # CHIRP isn't on PyPI; pinned to a tested commit. Its A36plus driver does the radio protocol.
     "chirp @ git+https://github.com/kk7ds/chirp@0bfb2b50e33dcaab59c380238f34e053d95dfd50",
 ]

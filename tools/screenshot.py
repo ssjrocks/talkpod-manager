@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Render the app's pages to PNGs for checking the UI (development tool).
 
-Usage: tools/screenshot.py IMAGE.img OUT_DIR [PICTURE]   (PICTURE: shown on the Boot logo page)
+Usage: tools/screenshot.py IMAGE.img OUT_DIR [PICTURE [ANIMATION]]
+       (PICTURE: shown on the Boot logo page; ANIMATION: on the Boot splash page)
 Run it on a virtual X display to keep windows off the desktop:
   GDK_BACKEND=x11 xvfb-run -s "-screen 0 1400x1000x24" tools/screenshot.py ...
 State and backups go to a temporary folder; nothing touches a radio.
@@ -15,6 +16,7 @@ from pathlib import Path
 
 IMAGE, OUT = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
 PICTURE = Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else None
+ANIMATION = Path(sys.argv[4]).resolve() if len(sys.argv) > 4 else None
 OUT.mkdir(parents=True, exist_ok=True)
 tmp = Path(tempfile.mkdtemp(prefix="tpm-shot-"))
 os.environ["XDG_STATE_HOME"] = str(tmp / "state")
@@ -61,6 +63,13 @@ class ShotApp(App):
             lambda: win.stack.set_visible_child_name("logo"),
             lambda: PICTURE and (setattr(win.logo_page, "path", str(PICTURE)), win.logo_page._render(), win._sync()) and None,
             lambda: capture(win, "4-logo"),
+            lambda: win.stack.set_visible_child_name("splash"),
+            lambda: ANIMATION and win.splash_page.load(str(ANIMATION)) and None,
+            lambda: None if not ANIMATION else (win.splash_page.splash is not None or False),   # built on a thread
+            lambda: capture(win, "4-splash"),
+            lambda: win.set_default_size(1200, 1640),
+            lambda: capture(win, "4-splash-full"),
+            lambda: win.set_default_size(1200, 820),
             lambda: win.plan(),
             lambda: capture(win, "5-plan"),
             lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),

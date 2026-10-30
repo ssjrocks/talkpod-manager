@@ -18,15 +18,19 @@ and **A36plus** handheld radios over the K-plug programming cable.
 - **Channel plans**: one click for the Australian 80-channel UHF CB plan, with repeater (duplex)
   copies of channels 1–8 and 41–48 at 101–108 / 141–148 (or 401–448), and everything else cleared so
   the radio's arrow keys only step through the plan.
-- **Boot logo**: send any picture as the 128 × 128 start-up logo, with a preview in the radio's
-  16-bit colours.
+- **Boot logo** (stock firmware): send any picture as the 128 × 128 start-up logo, with a preview
+  in the radio's 16-bit colours.
+- **Boot splash** (Talkpod Super Firmware): send an animated GIF (or APNG, WebP, or a still picture)
+  that the radio plays once when it's switched on. Pictures that aren't 128 × 128 are resized the
+  way you choose (shrink to fit, shrink or enlarge to fit, stretch, crop), with an animated preview
+  in the radio's colours and how much of the radio's 768 KB it takes.
 - **Backups**: automatic ones before and after every write, plus manual saves, in
   `~/Documents/Talkpod Manager/Backups`. Images are CHIRP `.img` files, so CHIRP opens them too.
 - **CSV import/export** in CHIRP's CSV format (works with CHIRP and RepeaterBook exports).
 
-| Settings, with hover help | Channel editor | Boot logo | Channel plan |
-|---|---|---|---|
-| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/channel-plan.png) |
+| Settings, with hover help | Channel editor | Boot logo | Boot splash | Channel plan |
+|---|---|---|---|---|
+| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/boot-splash.png) | ![](docs/screenshots/channel-plan.png) |
 
 ## Supported radios
 
@@ -62,10 +66,37 @@ To use the cable your user must be in the `dialout` group:
 
 Changes stay in the editor until you Write. The bottom bar says when there are unwritten changes.
 
-The boot logo is separate from Write: choose a picture on the **Boot logo** page and press
+The boot logo is separate from Write: choose a picture on the **Logo** page and press
 **Send picture to radio**. The radio can't send its current logo back, so the old one can't be
 restored afterwards. The picture only shows if menu 49 (Power On Message) is set to Logo; the page
 offers to change that.
+
+### Boot splash (Talkpod Super Firmware)
+
+Radios running Talkpod Super Firmware 1.0 or later play an animation at power-on instead of a still
+logo. On the **Splash** page, choose a GIF (or APNG, WebP, PNG, JPEG...) and press **Send to
+radio**. The radio must be switched on with the cable in; it doesn't need to be read first.
+
+- The screen is 128 × 128. Other sizes are resized as chosen under **Resize**:
+  - **Shrink or enlarge to fit** keeps the shape;
+  - **Shrink to fit** only makes big pictures smaller;
+  - **Stretch to fill** fills the screen and may change the shape;
+  - **Crop to fill** fills the screen and cuts off the edges.
+- **Background** fills the bars and transparent parts.
+- A still picture is shown for the time you choose.
+- **Frames** can skip every 2nd or 3rd frame of a big animation, keeping its length.
+- Limits:
+  - up to 15 s (longer animations are cut) and 768 KB;
+  - each frame up to 256 colours;
+  - frames of at least 20 ms.
+
+  Only what changes between frames is stored. The page shows the size, the room it takes and how
+  long sending will take: about a minute per 100 KB, everything read back to check it.
+- **Play the radio's splash now** shows what's on the radio; **Remove** takes it off (the radio
+  then starts straight to its main screen).
+
+The splash format and the firmware's serial commands are described in
+[talkpod_manager/splash.py](talkpod_manager/splash.py).
 
 ### Cable trouble
 
@@ -119,7 +150,8 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -e . pytest
 .venv/bin/python -m pytest              # no radio needed (uses a saved image and a simulated radio)
 .venv/bin/python -m talkpod_manager     # run from the checkout
-GDK_BACKEND=x11 xvfb-run -a tools/screenshot.py tests/data/a36se-fw126-uhf-cb.img /tmp/shots
+GDK_BACKEND=x11 xvfb-run -a tools/screenshot.py tests/data/a36se-fw126-uhf-cb.img /tmp/shots \
+    talkpod_manager/data/icons/hicolor/scalable/apps/io.github.ssjrocks.TalkpodManager.svg ANIMATION.gif
 ```
 
 Releases: bump `__version__` in `talkpod_manager/__init__.py`, commit, then

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gio, GLib, Gtk, Pango
 
-from .. import APP_NAME, appreports, backups, channels, logo, paths, updater
+from .. import APP_NAME, appreports, backups, channels, logo, paths, splash, updater
 from .. import radio as rio
 from . import worker
 from .backups_page import BackupsPage
@@ -15,6 +15,7 @@ from .channels_page import ChannelsPage
 from .logo_page import LogoPage
 from .plan_dialog import PlanDialog
 from .settings_page import SettingsPage
+from .splash_page import SplashPage, send_time
 
 from chirp import chirp_common
 
@@ -33,7 +34,7 @@ def _file_dialog(title, pattern, name):
 
 class MainWindow(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title=APP_NAME, default_width=1120, default_height=780)
+        super().__init__(application=app, title=APP_NAME, default_width=1200, default_height=800)
         self.set_icon_name(app.get_application_id())
         self.radio = None
         self.dirty = False
@@ -73,6 +74,10 @@ class MainWindow(Adw.ApplicationWindow):
         self.logo_page = LogoPage()
         self.logo_page.connect("send-requested", lambda *_: self.send_logo())
         self.logo_page.connect("use-logo-requested", lambda *_: self.use_logo_at_power_on())
+        self.splash_page = SplashPage()
+        self.splash_page.connect("send-requested", lambda *_: self.send_splash())
+        self.splash_page.connect("play-requested", lambda *_: self.play_splash())
+        self.splash_page.connect("remove-requested", lambda *_: self.remove_splash())
         self.backups_page = BackupsPage()
         self.backups_page.connect("open-requested", lambda _p, path: self.confirm_discard(lambda: self.open_image(path)))
         self.backups_page.connect("save-requested", lambda *_: self.save_backup())
@@ -81,7 +86,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.settings_stack = self._with_empty(self.settings_page)
         self.stack.add_titled_with_icon(self.channels_stack, "channels", "Channels", "view-list-symbolic")
         self.stack.add_titled_with_icon(self.settings_stack, "settings", "Settings", "emblem-system-symbolic")
-        self.stack.add_titled_with_icon(self.logo_page, "logo", "Boot logo", "image-x-generic-symbolic")
+        self.stack.add_titled_with_icon(self.logo_page, "logo", "Logo", "image-x-generic-symbolic")
+        self.stack.add_titled_with_icon(self.splash_page, "splash", "Splash", "video-x-generic-symbolic")
         self.stack.add_titled_with_icon(self.backups_page, "backups", "Backups", "document-open-recent-symbolic")
 
         self.status = Gtk.Label(xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
@@ -197,6 +203,7 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             self.write_btn.remove_css_class("suggested-action")
         self.logo_page.send.set_sensitive(has_port and not self.busy and self.logo_page.pixels is not None)
+        self.splash_page.set_radio_ok(has_port and not self.busy)
         for s in (self.channels_stack, self.settings_stack):
             s.set_visible_child_name("content" if has_radio else "empty")
         self.backups_page.can_save = has_radio
@@ -352,6 +359,61 @@ class MainWindow(Adw.ApplicationWindow):
         self.alert("Picture sent",
                    "Switch the radio off and on to see it. If it shows the battery voltage instead, set menu 49 "
                    "(Power On Message) to Logo, or use “Show logo” on this page and Write.")
+
+    def send_splash(self):
+        s = self.splash_page.splash
+        if not s:
+            return
+        d = Adw.AlertDialog(
+            heading="Send the boot splash?",
+            body=f"It replaces the splash on the radio and takes {send_time(s.upload_seconds)}. Keep the radio "
+                 "switched on with the cable plugged in. The radio needs Talkpod Super Firmware 1.0 or later; "
+                 "channels and settings aren't touched.")
+        d.add_response("cancel", "Cancel")
+        d.add_response("send", "Send")
+        d.set_response_appearance("send", Adw.ResponseAppearance.SUGGESTED)
+        d.connect("response", lambda _d, r: self._do_send_splash(s.blob) if r == "send" else None)
+        d.present(self)
+
+    def _do_send_splash(self, blob):
+        port = self.port()
+        self.set_busy(True, "Sending the splash")
+        worker.run(lambda p: splash.send(port, blob, p), self._splash_done, self._io_error, self._progress)
+
+    def _splash_done(self, _):
+        self.set_busy(False)
+        self.alert("Splash sent and checked",
+                   "The radio just played it, and it will play every time the radio is switched on.")
+
+    def play_splash(self):
+        port = self.port()
+        self.set_busy(True, "Playing the splash on the radio")
+
+        def done(played):
+            self.set_busy(False)
+            self.toast("Played on the radio" if played else "The radio has no splash")
+
+        worker.run(lambda p: splash.play(port), done, self._io_error)
+
+    def remove_splash(self):
+        d = Adw.AlertDialog(heading="Remove the boot splash?",
+                            body="The radio will start straight to its main screen. You can send a splash again "
+                                 "at any time.")
+        d.add_response("cancel", "Cancel")
+        d.add_response("remove", "Remove")
+        d.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.connect("response", lambda _d, r: self._do_remove_splash() if r == "remove" else None)
+        d.present(self)
+
+    def _do_remove_splash(self):
+        port = self.port()
+        self.set_busy(True, "Removing the splash")
+
+        def done(_):
+            self.set_busy(False)
+            self.toast("Splash removed from the radio")
+
+        worker.run(lambda p: splash.remove(port), done, self._io_error)
 
     def use_logo_at_power_on(self):
         if not self.radio:
