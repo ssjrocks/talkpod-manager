@@ -23,7 +23,7 @@ and **A36plus** handheld radios over the K-plug programming cable.
 - **Boot splash** (Talkpod Super Firmware): send an animated GIF (or APNG, WebP, or a still picture)
   that the radio plays once when it's switched on. Pictures that aren't 128 × 128 are resized the
   way you choose (shrink to fit, shrink or enlarge to fit, stretch, crop), with an animated preview
-  in the radio's colours and how much of the radio's 768 KB it takes.
+  in the radio's colours and how much of the radio's 500 KB it takes.
 - **Firmware**: flash firmware from the app (main menu → **Flash firmware…**). Ready to flash:
   [Talkpod Super Firmware](https://github.com/ssjrocks/talkpod-super-firmware) and VR2TE's "Super"
   builds of Talkpod's firmware, each downloaded from its author's GitHub and checked before it's
@@ -127,7 +127,7 @@ The splash format and the firmware's serial commands are described in
 
 No third-party firmware is copied into this app.
 - **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
-  against the SHA-256 GitHub publishes with it. A copy of 1.0 comes with the app for use offline.
+  against the SHA-256 GitHub publishes with it. A copy of 1.1 comes with the app for use offline.
 - **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
   pinned in the app. A changed file is refused.
 - **Your own file:** "A firmware file" takes any `.kdhx`.
