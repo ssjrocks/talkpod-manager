@@ -27,7 +27,8 @@ def _combo(title, labels, selected=0):
 
 
 class ChannelDialog(Adw.Dialog):
-    def __init__(self, radio, mem, on_save, on_clear=None, new=False):
+    def __init__(self, radio, mem, on_save, on_clear=None, new=False, unused=None):
+        """unused: {extra name: why}, fields the radio's firmware ignores (greyed out, kept)"""
         super().__init__(title="New channel" if new else f"Channel {mem.number}", content_width=480,
                          content_height=720)
         self.radio = radio
@@ -125,7 +126,11 @@ class ChannelDialog(Adw.Dialog):
         g.add(self.scan)
         if m.extra:
             for s in m.extra:
-                g.add(settingrows.row_for(s, help_table=descriptions.EXTRAS))
+                row = settingrows.row_for(s, help_table=descriptions.EXTRAS)
+                if s.get_name() in (unused or {}):
+                    row.set_sensitive(False)
+                    row.set_subtitle(unused[s.get_name()])
+                g.add(row)
 
         for key, row in [("name", self.name), ("rx", self.rx), ("duplex", self.duplex), ("offset", self.offset),
                          ("power", self.power), ("tmode", self.tmode), ("tone", self.tone), ("dcs", self.dcs),

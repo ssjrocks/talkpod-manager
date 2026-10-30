@@ -4,6 +4,7 @@ import logging
 
 from gi.repository import Adw, GObject, Gtk
 
+from .. import features
 from .. import radio as rio
 from . import settingrows
 
@@ -19,7 +20,8 @@ class SettingsPage(Gtk.Box):
         self.settings = None
         self.page = None
 
-    def load(self, radio):
+    def load(self, radio, firmware=None):
+        """firmware: what the radio runs (radio.Firmware), None when unknown (an opened file)"""
         self.radio = radio
         if self.page is not None:
             self.remove(self.page)
@@ -29,12 +31,19 @@ class SettingsPage(Gtk.Box):
                         "“Radio menu” numbers match the menu on the radio. Changes here go into the "
                         "editor; use Write to send them to the radio.")
         self.page.add(intro)
+        note = features.settings_note(firmware)
+        if note:
+            g = Adw.PreferencesGroup()
+            row = Adw.ActionRow(title="Not used by this radio's firmware", subtitle=note, activatable=False)
+            row.add_prefix(Gtk.Image(icon_name="dialog-information-symbolic"))
+            g.add(row)
+            self.page.add(g)
         self.settings = radio.get_settings()
         hidden = rio.missing_settings(radio)
         for i, group in enumerate(self.settings):
             # Basic settings stay open; the long code/name lists start collapsed.
             settingrows.add_group(self.page, group, self._changed, collapse_over=None if i == 0 else 8,
-                                  skip=hidden)
+                                  skip=hidden, sensitive=note is None)
         self.append(self.page)
 
     def _changed(self, setting):

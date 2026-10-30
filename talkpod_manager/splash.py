@@ -3,15 +3,16 @@ picture) the radio plays once when it is switched on. Pictures are fitted to the
 coded in the firmware's A36G format and written over the firmware's serial shell. Stock firmware
 has no splash; it shows a still boot logo instead (logo.py).
 
-A36G, little-endian, at external flash 0x120000 (at most 768 KB):
+A36G, little-endian, at external flash 0x120000 (at most 500 KB; Super Firmware 1.0 allowed 768 KB):
   "A36G", u16 frames, u16 background RGB565, u32 total bytes
+  "A36H" (Super Firmware 1.1+): the same, then u8 plays and 3 reserved bytes: plays the frames that many times
   per frame: u16 delay ms, u8 x, y, w, h (w = 0: nothing changes), u16 colours, colours x u16
              RGB565, u32 data bytes, then PackBits over the palette indices of the w x h rectangle,
              row by row (n < 128: n + 1 literal indices follow; n >= 128: the next index n - 125 times)
 
 The firmware's shell (57600 8N1, commands end in CR, replies in CRLF; the radio may print log
 lines in between, so replies are picked out by their content):
-  i            "fw=TSF ver=1.00 board=HWVER02 splash=00120000+000C0000 splash_fmt=A36G"
+  i            "fw=TSF ver=1.10 board=HWVER02 splash=00120000+0007D000 splash_fmt=A36G,A36H"
   E ADDR       erase the 4 KB sector at ADDR (hex): ok / refused
   W ADDR LEN   then LEN bytes (1-256) and their CRC-16/XMODEM, big-endian: ok / crc / refused / timeout
   X ADDR LEN   LEN raw bytes, then their CRC-16/XMODEM, big-endian
@@ -29,12 +30,14 @@ LOG = logging.getLogger(__name__)
 
 SIZE = 128
 BASE = 0x120000
-CAPACITY = 0xC0000                      # 768 KB
+CAPACITY = 0x7D000                      # 500 KB (what the radio says wins when sending)
 MAX_MS = 15000                          # longer animations are cut here
 MIN_DELAY = 20                          # ms per frame at the least
 SECTOR = 0x1000
 BYTES_PER_SECOND = 1700                 # sending incl. the check: 157 KB took 91 s on an A36SE
 STILL_SECONDS = (1, 2, 3, 5, 8)
+PLAYS = (1, 2, 3, 5, 10)
+HOLD_SECONDS = (0, 1, 2, 3, 5)
 
 # (key, label, explanation)
 FIT_MODES = [
@@ -164,8 +167,9 @@ def _packbits(idx):
     return bytes(out)
 
 
-def encode(frames, bg=0):
-    """A36G bytes from [(128 * 128 RGB565 values, delay ms)]; each frame stores what changed"""
+def encode(frames, bg=0, plays=1):
+    """A36G bytes from [(128 * 128 RGB565 values, delay ms)], or A36H to play them more than once;
+    each frame stores what changed"""
     import struct
     body, prev = bytearray(), None
     for px, delay in frames:
@@ -191,18 +195,43 @@ def encode(frames, bg=0):
         body += struct.pack(f"<{len(palette)}H", *palette)
         body += struct.pack("<I", len(data)) + data
         prev = px
+    if plays > 1:
+        return b"A36H" + struct.pack("<HHIB3x", len(frames), bg, 16 + len(body), min(255, plays)) + bytes(body)
     return b"A36G" + struct.pack("<HHI", len(frames), bg, 12 + len(body)) + bytes(body)
 
 
-def decode(blob):
-    """[(128 * 128 RGB565 values, delay ms)] as the radio draws them; ValueError if it isn't A36G"""
+def _header(blob):
+    """(frames, background, total, plays, header size); ValueError if it isn't a splash"""
     import struct
-    if blob[:4] != b"A36G":
+    if blob[:4] not in (b"A36G", b"A36H"):
         raise ValueError("not a splash")
     count, bg, total = struct.unpack_from("<HHI", blob, 4)
     if total != len(blob):
         raise ValueError(f"length {total} in the header, {len(blob)} bytes given")
-    screen, out, p = [bg] * (SIZE * SIZE), [], 12
+    if blob[:4] == b"A36H":
+        return count, bg, total, max(1, blob[12]), 16
+    return count, bg, total, 1, 12
+
+
+def plays_of(blob):
+    return _header(blob)[3]
+
+
+def unroll(blob):
+    """An A36H splash as A36G with its frames written out once per play (for Super Firmware 1.0, which
+    reads only A36G); the first frame redraws the whole screen, so each play starts cleanly."""
+    import struct
+    count, bg, _total, plays, head = _header(blob)
+    body = bytes(blob[head:]) * plays
+    return b"A36G" + struct.pack("<HHI", count * plays, bg, 12 + len(body)) + body
+
+
+def decode(blob):
+    """[(128 * 128 RGB565 values, delay ms)] as the radio draws them, one play; ValueError if it isn't
+    a splash"""
+    import struct
+    count, bg, total, _plays, head = _header(blob)
+    screen, out, p = [bg] * (SIZE * SIZE), [], head
     for _ in range(count):
         delay, x, y, w, h, n = struct.unpack_from("<HBBBBH", blob, p)
         p += 8
@@ -231,12 +260,14 @@ def decode(blob):
 @dataclass
 class Splash:
     """A picture made ready for the radio."""
-    frames: list                        # [(RGB565 values, delay ms)], what the radio will show
-    blob: bytes                         # the A36G data that goes to the radio
+    frames: list                        # [(RGB565 values, delay ms)], what the radio will show, one play
+    blob: bytes                         # the A36G / A36H data that goes to the radio
+    plays: int = 1
 
     @property
     def duration_ms(self):
-        return sum(d for _, d in self.frames)
+        """how long it plays, all repeats included"""
+        return sum(d for _, d in self.frames) * self.plays
 
     @property
     def fits(self):
@@ -251,18 +282,20 @@ class Splash:
         return len(self.blob) / BYTES_PER_SECOND + 3
 
 
-def build(source, mode="fit", bg=(0, 0, 0), still_ms=3000, every=1):
-    """source fitted to the screen and coded; every: keep every n-th frame of an animation (its
-    delay goes to the frames kept, so the animation still takes as long)."""
+def build(source, mode="fit", bg=(0, 0, 0), still_ms=3000, every=1, plays=1, hold_ms=0):
+    """source fitted to the screen and coded. every: keep every n-th frame of an animation (its
+    delay goes to the frames kept, so the animation still takes as long); plays: play an animation
+    that many times (stored once); hold_ms: keep its last frame up that much longer, at the end."""
     frames = []
     if source.animated:
         for i in range(0, len(source.frames), every):
             group = source.frames[i:i + every]
             frames.append((group[0][0], sum(d for _, d in group)))
+        frames[-1] = (frames[-1][0], frames[-1][1] + hold_ms)
     else:
-        frames = [(source.frames[0][0], still_ms)]
+        frames, plays = [(source.frames[0][0], still_ms)], 1
     out = [(_pixels565(fit(img, mode, bg)), delay) for img, delay in frames]
-    return Splash(out, encode(out, rgb565(*bg)))
+    return Splash(out, encode(out, rgb565(*bg), plays), plays)
 
 
 # ---- the radio ----------------------------------------------------------------------------------
@@ -312,7 +345,8 @@ class Shell:
         if not line:
             raise SplashError(NOT_THIS_FIRMWARE)
         info = dict(kv.split("=", 1) for kv in line.split() if "=" in kv)
-        if info.get("splash_fmt") != "A36G":
+        info["formats"] = set(info.get("splash_fmt", "").split(","))
+        if "A36G" not in info["formats"]:
             raise SplashError(f"The radio's firmware ({info.get('fw')} {info.get('ver')}) doesn't take this "
                               "kind of splash. Update Talkpod Super Firmware.")
         try:
@@ -357,6 +391,8 @@ def send(port, blob, progress=None, opener=None):
     with Shell(port, opener) as sh:
         info = sh.info()
         base, capacity = info["base"], info["capacity"]
+        if blob[:4] == b"A36H" and "A36H" not in info["formats"]:
+            blob = unroll(blob)                 # Super Firmware 1.0: repeats written out
         if len(blob) > capacity:
             raise SplashError(f"The splash is {len(blob) // 1024} KB; the radio has room for {capacity // 1024} KB.")
         sectors = range(base, base + len(blob), SECTOR)

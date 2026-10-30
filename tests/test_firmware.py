@@ -151,12 +151,18 @@ def test_max_image_refused_for_5w():
         firmware.check_for_radio(big, radio.mml_jc8810.A36plusRadio)
 
 
-def test_custom_firmware_is_flashable_but_not_programmable(fake):
+def test_super_firmware_1_0_is_flashable_but_not_programmable(fake):
     fake.ident = b"A36CFW01"
     cls, ident = radio.identify("/dev/fake", allow_custom=True)
     assert cls is radio.mml_jc8810.A36plusRadio and ident == b"A36CFW01"
-    with pytest.raises(radio.RadioError, match="custom firmware"):
+    with pytest.raises(radio.RadioError, match="Flash 1.1 or later"):
         radio.identify("/dev/fake")
+
+
+def test_super_firmware_1_1_is_programmable(fake):
+    fake.ident = radio.SUPER_IDENT
+    cls, ident = radio.identify("/dev/fake")
+    assert cls is radio.SuperFirmwareRadio and radio.base_model(cls) is radio.mml_jc8810.A36plusRadio
 
 
 def test_debug_output_before_ack_is_skipped(fake):

@@ -89,15 +89,54 @@ def enter_program_mode(s, magic=MAGIC, tries=5):
     return False
 
 
-# Custom firmware built for these radios (github.com/ssjrocks a36se-fw) identifies itself with this
-# prefix instead of a stock fingerprint. It can be flashed, but holds no CHIRP-format memory.
+# Talkpod Super Firmware (github.com/ssjrocks/talkpod-super-firmware) identifies itself with this
+# prefix and a protocol level instead of a stock fingerprint: A36CFW01 (1.0) can only be identified
+# and flashed; A36CFW02 (1.1 and later) reads and writes channels and settings in the stock layout.
 CUSTOM_FIRMWARE_PREFIX = b"A36CFW"
+SUPER_IDENT = b"A36CFW02"
 
 
-def identify(port, allow_custom=False):
-    """Handshake only. Returns (CHIRP radio class, 8-byte ident). Leaves programming mode.
+class SuperFirmwareRadio(mml_jc8810.A36plusRadio):
+    """The A36plus 5 W memory, read and written through Talkpod Super Firmware. Images stay plain
+    A36plus images (same vendor and model), so they move freely between stock and Super Firmware."""
+    _fingerprint = [SUPER_IDENT]
 
-    allow_custom: also accept custom firmware (reported as the A36plus 5 W model), for flashing."""
+
+class Firmware:
+    """What the radio runs: kind "stock" or "super", the ident, and Super Firmware's version."""
+
+    def __init__(self, ident, version=None):
+        self.ident = ident
+        self.kind = "super" if ident.startswith(CUSTOM_FIRMWARE_PREFIX) else "stock"
+        self.version = version
+
+    @property
+    def name(self):
+        if self.kind == "stock":
+            return "stock firmware"
+        return f"Talkpod Super Firmware {self.version}" if self.version else "Talkpod Super Firmware"
+
+    def __repr__(self):
+        return f"Firmware({self.name}, {self.ident!r})"
+
+
+def _super_version(s):
+    """The firmware's own version from its serial shell ('i'), or None."""
+    s.reset_input_buffer()
+    s.write(b"\ri\r")
+    reply = s.read_until(b"\n", 200) + s.read_until(b"\n", 200)
+    for word in reply.decode("latin-1").split():
+        if word.startswith("ver="):
+            return word[4:]
+    return None
+
+
+def identify(port, allow_custom=False, with_firmware=False):
+    """Handshake only. Returns (CHIRP radio class, 8-byte ident), plus a Firmware with
+    with_firmware. Leaves programming mode.
+
+    allow_custom: also accept Super Firmware 1.0, which holds no readable memory (for flashing)."""
+    version = None
     with _open(port, timeout=1.0) as s:
         if not enter_program_mode(s):
             raise RadioError(
@@ -108,15 +147,23 @@ def identify(port, allow_custom=False):
         ident = s.read(8)
         s.write(b"E")
         time.sleep(0.2)
-    for cls in MODELS:
-        if ident in cls._fingerprint:
-            return cls, ident
-    if ident.startswith(CUSTOM_FIRMWARE_PREFIX):
-        if allow_custom:
-            return mml_jc8810.A36plusRadio, ident
+        if ident.startswith(CUSTOM_FIRMWARE_PREFIX):
+            version = _super_version(s)
+    found = next((cls for cls in MODELS if ident in cls._fingerprint), None)
+    if found is None and ident == SUPER_IDENT:
+        found = SuperFirmwareRadio
+    if found is None and ident.startswith(CUSTOM_FIRMWARE_PREFIX):
+        if not allow_custom:
+            raise RadioError(
+                f"The radio runs Talkpod Super Firmware {version or '1.0'}, which can't be read or written. "
+                "Flash 1.1 or later (main menu → Flash firmware…) and try again.")
+        found = mml_jc8810.A36plusRadio
+    if found is None:
         raise RadioError(
-            f"The radio runs custom firmware ({ident.decode('ascii', 'replace')}), which can be "
-            "flashed with talkpod-firmware but doesn't hold channels this app can read.")
+            "The radio answered but reported an unknown firmware "
+            f"(identification {ident.hex(' ')}). This app supports Talkpod A36plus / A36SE "
+            "firmware that CHIRP supports, and Talkpod Super Firmware.")
+    return (found, ident, Firmware(ident, version)) if with_firmware else (found, ident)
     raise RadioError(
         "The radio answered but reported an unknown firmware "
         f"(identification {ident.hex(' ')}). This app supports Talkpod A36plus / A36SE "
@@ -128,6 +175,11 @@ def describe_model(cls):
     return "A36plus 8 W" if cls is mml_jc8810.A36plus8wRadio else "A36SE / A36plus 5 W"
 
 
+def base_model(cls):
+    """The model a driver class is for (Super Firmware's class is the A36plus 5 W)."""
+    return mml_jc8810.A36plusRadio if cls is SuperFirmwareRadio else cls
+
+
 def _status_cb(progress, msg):
     def fn(status):
         if progress and status.max:
@@ -136,9 +188,10 @@ def _status_cb(progress, msg):
 
 
 def download(port, progress=None):
-    """Read the whole radio. Returns a CHIRP radio object holding the memory image."""
-    cls, ident = identify(port)
-    LOG.info("downloading from %s (%s, ident %s)", port, cls.MODEL, ident.hex())
+    """Read the whole radio. Returns a CHIRP radio object holding the memory image; its
+    talkpod_firmware attribute says what the radio runs."""
+    cls, ident, fw = identify(port, with_firmware=True)
+    LOG.info("downloading from %s (%s, %s)", port, cls.MODEL, fw)
     with _open(port, cls.BAUD_RATE) as pipe:
         radio = cls(pipe)
         radio.status_fn = _status_cb(progress, "Reading from radio")
@@ -147,27 +200,30 @@ def download(port, progress=None):
         except errors.RadioError as e:
             raise RadioError(f"Reading the radio failed: {e}") from e
     radio.pipe = None
+    radio.talkpod_firmware = fw
     return radio
 
 
 def upload(port, radio, progress=None):
     """Write an image to the radio. Refuses if the radio is a different model."""
     cls, ident = identify(port)
-    if cls is not model_class(radio):
+    if base_model(cls) is not model_class(radio):
         raise RadioError(
             f"This image is for a {describe_model(model_class(radio))}, but the radio is a "
             f"{describe_model(cls)}. Nothing was written."
         )
-    LOG.info("uploading to %s (%s)", port, cls.MODEL)
+    LOG.info("uploading to %s (%s, ident %s)", port, cls.MODEL, ident.hex())
+    # a driver object for the radio's own firmware (its ident check), holding this image
+    writer = radio if type(radio) is cls else cls(radio.get_mmap())
     with _open(port, cls.BAUD_RATE) as pipe:
-        radio.pipe = pipe
-        radio.status_fn = _status_cb(progress, "Writing to radio")
+        writer.pipe = pipe
+        writer.status_fn = _status_cb(progress, "Writing to radio")
         try:
-            radio.sync_out()
+            writer.sync_out()
         except errors.RadioError as e:
             raise RadioError(f"Writing to the radio failed part-way: {e}. Write again to finish.") from e
         finally:
-            radio.pipe = None
+            writer.pipe = None
 
 
 def written_bytes(radio):

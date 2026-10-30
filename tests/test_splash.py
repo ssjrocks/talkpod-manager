@@ -151,8 +151,9 @@ def test_unreadable_file(tmp_path):
 class FakeShell:
     """The firmware's serial shell, with its flash, a log line now and then, and a CRC error."""
 
-    def __init__(self, answers=True, crc_fail_at=None):
+    def __init__(self, answers=True, crc_fail_at=None, version="1.10"):
         self.answers = answers
+        self.version = version
         self.flash = bytearray(b"\xff" * 0x200000)
         self.crc_fail_at = crc_fail_at
         self.out = bytearray()
@@ -197,7 +198,10 @@ class FakeShell:
             return
         op, *args = cmd.split()
         if op == "i":
-            self.say("fw=TSF ver=1.00 board=HWVER02 splash=00120000+000C0000 splash_fmt=A36G")
+            if self.version == "1.00":
+                self.say("fw=TSF ver=1.00 board=HWVER02 splash=00120000+000C0000 splash_fmt=A36G")
+            else:
+                self.say("fw=TSF ver=1.10 board=HWVER02 splash=00120000+0007D000 splash_fmt=A36G,A36H")
         elif op == "E":
             a = int(args[0], 16)
             ok = 0x110000 <= a < 0x1F0000
@@ -213,7 +217,7 @@ class FakeShell:
             self.out += data + logo.crc16(data).to_bytes(2, "big")
         elif op == "G":
             self.played += 1
-            self.say("ok" if self.flash[0x120000:0x120004] == b"A36G" else "no splash")
+            self.say("ok" if self.flash[0x120000:0x120004] in (b"A36G", b"A36H") else "no splash")
 
     def _store(self):
         (addr, n), data = self.binary, self.bin
@@ -255,7 +259,7 @@ def test_stock_firmware_gets_a_clear_message():
 def test_too_big_is_refused_before_anything_is_erased():
     fake = FakeShell()
     with pytest.raises(splash.SplashError, match="room"):
-        splash.send("/dev/fake", b"A36G" + bytes(splash.CAPACITY), opener=lambda *a, **k: fake)
+        splash.send("/dev/fake", b"A36G" + bytes(0x7D000), opener=lambda *a, **k: fake)
     assert not fake.erased
 
 
@@ -267,3 +271,44 @@ def test_play_and_remove():
     assert splash.play("/dev/fake", open_) is True
     splash.remove("/dev/fake", open_)
     assert fake.erased == [0x120000] and fake.flash[0x120000] == 0xFF
+
+
+def test_repeats_are_stored_once_and_held_frames_last_longer(tmp_path):
+    p = tmp_path / "a.gif"
+    make_gif(p, 4)
+    src = splash.load(p)
+    once = splash.build(src)
+    thrice = splash.build(src, plays=3, hold_ms=2000)
+    assert thrice.blob[:4] == b"A36H" and splash.plays_of(thrice.blob) == 3
+    assert len(thrice.blob) == len(once.blob) + 4              # the longer header, not three copies
+    assert thrice.duration_ms == (once.duration_ms + 2000) * 3
+    assert splash.decode(thrice.blob)[-1][1] == once.frames[-1][1] + 2000
+    still = splash.build(splash.Source("x", 128, 128, [(src.frames[0][0], 100)]), plays=5)
+    assert still.plays == 1 and still.blob[:4] == b"A36G"     # a still picture isn't repeated
+
+
+def test_unrolled_repeats_play_the_same(tmp_path):
+    p = tmp_path / "a.gif"
+    make_gif(p, 4)
+    s = splash.build(splash.load(p), plays=3)
+    flat = splash.unroll(s.blob)
+    assert flat[:4] == b"A36G" and splash.decode(flat) == s.frames * 3
+
+
+def test_super_firmware_1_0_gets_the_repeats_written_out(tmp_path):
+    p = tmp_path / "a.gif"
+    make_gif(p, 4)
+    s = splash.build(splash.load(p), plays=2)
+    fake = FakeShell(version="1.00")
+    splash.send("/dev/fake", s.blob, opener=lambda *a, **k: fake)
+    stored = bytes(fake.flash[0x120000:0x120000 + len(splash.unroll(s.blob))])
+    assert stored == splash.unroll(s.blob)
+
+
+def test_super_firmware_1_1_takes_the_repeat_count(tmp_path):
+    p = tmp_path / "a.gif"
+    make_gif(p, 4)
+    s = splash.build(splash.load(p), plays=2)
+    fake = FakeShell()
+    splash.send("/dev/fake", s.blob, opener=lambda *a, **k: fake)
+    assert bytes(fake.flash[0x120000:0x120000 + len(s.blob)]) == s.blob

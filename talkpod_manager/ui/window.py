@@ -6,7 +6,7 @@ from pathlib import Path
 
 from gi.repository import Adw, Gio, GLib, Gtk, Pango
 
-from .. import APP_NAME, appreports, backups, channels, logo, paths, splash, updater
+from .. import APP_NAME, appreports, backups, channels, features, logo, paths, splash, updater
 from .. import radio as rio
 from . import worker
 from .backups_page import BackupsPage
@@ -38,6 +38,7 @@ class MainWindow(Adw.ApplicationWindow):
         super().__init__(application=app, title=APP_NAME, default_width=1200, default_height=800)
         self.set_icon_name(app.get_application_id())
         self.radio = None
+        self.firmware = None            # what the radio last read runs (radio.Firmware); None: unknown
         self.dirty = False
         self.source = ""
         self.busy = False
@@ -223,12 +224,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.dirty = True
         self._sync()
 
-    def set_radio(self, r, source, dirty=False):
+    def set_radio(self, r, source, dirty=False, firmware=None):
         self.radio = r
+        self.firmware = firmware
         self.source = source
         self.dirty = dirty
         self.channels_page.load(r)
-        self.settings_page.load(r)
+        self.settings_page.load(r, firmware)
         self.logo_page.set_power_on_message(self.settings_page.value("ponmsg"))
         self.backups_page.set_can_save(True)
         self._sync()
@@ -299,7 +301,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _read_done(self, r):
         self.set_busy(False)
-        self.set_radio(r, f"Read from the radio at {dt.datetime.now():%H:%M}")
+        fw = getattr(r, "talkpod_firmware", None)
+        self.set_radio(r, f"Read from the radio ({fw.name if fw else 'stock firmware'}) at {dt.datetime.now():%H:%M}",
+                       firmware=fw)
         self.toast(f"Read {channels.used_count(r)} channels from the radio")
 
     def write(self):
@@ -323,14 +327,17 @@ class MainWindow(Adw.ApplicationWindow):
             rio.upload(port, image, lambda f, t: progress(0.3 + f * 0.4, "Writing to the radio"))
             check = rio.download(port, lambda f, t: progress(0.7 + f * 0.3, "Reading back to check"))
             after = backups.save(check, "after write")
-            return before, after, rio.compare(image, check)
+            return before, after, rio.compare(image, check), getattr(check, "talkpod_firmware", None)
 
         self.set_busy(True, "Backing up the radio first")
         worker.run(job, self._write_done, self._io_error, self._progress)
 
     def _write_done(self, result):
-        before, after, diffs = result
+        before, after, diffs, fw = result
         self.set_busy(False)
+        if fw and (self.firmware is None or fw.name != self.firmware.name):
+            self.firmware = fw                  # the editor follows what the radio runs
+            self.settings_page.load(self.radio, fw)
         self.backups_page.reload()
         if diffs:
             LOG.warning("read-back differs at %d bytes, first %s", len(diffs), [hex(a) for a in diffs[:10]])
@@ -434,7 +441,7 @@ class MainWindow(Adw.ApplicationWindow):
                     if choice:
                         el.value.set_value(choice)
                         rio.apply_setting(self.radio, el)
-                        self.settings_page.load(self.radio)
+                        self.settings_page.load(self.radio, self.firmware)
                         self.logo_page.set_power_on_message(choice)
                         self.mark_dirty()
                         self.toast("Power-on message set to Logo. Write to send it to the radio.")
@@ -449,7 +456,8 @@ class MainWindow(Adw.ApplicationWindow):
         new = mem.empty
         if new:
             mem = self._blank(number)
-        ChannelDialog(self.radio, mem, self._channel_saved, self.clear_channel, new=new).present(self)
+        ChannelDialog(self.radio, mem, self._channel_saved, self.clear_channel, new=new,
+                      unused=features.unused_channel_extras(self.firmware)).present(self)
 
     def _blank(self, number):
         m = chirp_common.Memory()
@@ -465,7 +473,8 @@ class MainWindow(Adw.ApplicationWindow):
         if n is None:
             self.toast("Every channel is in use")
             return
-        ChannelDialog(self.radio, self._blank(n), self._channel_saved, new=True).present(self)
+        ChannelDialog(self.radio, self._blank(n), self._channel_saved, new=True,
+                      unused=features.unused_channel_extras(self.firmware)).present(self)
 
     def _channel_saved(self, mem):
         self.radio.set_memory(mem)

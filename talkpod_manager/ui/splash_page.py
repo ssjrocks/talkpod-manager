@@ -17,9 +17,9 @@ LIMITS = [
      "Stock firmware has no animation: it shows a still picture, set on the Logo page."),
     ("128 × 128 pixels, 16-bit colour",
      "Other sizes are resized as chosen above. Each frame can have up to 256 colours; more are reduced."),
-    ("Plays once at power-on",
-     "Then the radio carries on as usual. Any key skips it."),
-    ("Up to 15 seconds and 768 KB",
+    ("Plays at power-on",
+     "Once, or as many times as \u201cPlay it\u201d says; then the radio carries on as usual. Any key skips it."),
+    ("Up to 15 seconds of animation and 500 KB",
      "Longer animations are cut at 15 s. Only what changes between frames is stored, so simple "
      "animations take little room."),
     ("Frames of 20 ms or longer",
@@ -122,6 +122,16 @@ class SplashPage(Gtk.Box):
                                       model=Gtk.StringList.new(["All frames", "Every 2nd frame", "Every 3rd frame"]))
         self.every_row.connect("notify::selected", lambda *_: self._rebuild())
         g.add(self.every_row)
+        self.plays_row = Adw.ComboRow(title="Play it", visible=False,
+                                      subtitle="Repeats take no extra room (Super Firmware 1.1 and later)",
+                                      model=Gtk.StringList.new(["Once"] + [f"{n} times" for n in splash.PLAYS[1:]]))
+        self.plays_row.connect("notify::selected", lambda *_: self._rebuild())
+        g.add(self.plays_row)
+        self.hold_row = Adw.ComboRow(title="Hold the last frame", visible=False,
+                                     subtitle="Keeps the end of the animation on screen a little longer",
+                                     model=Gtk.StringList.new(["No"] + [f"{n} s longer" for n in splash.HOLD_SECONDS[1:]]))
+        self.hold_row.connect("notify::selected", lambda *_: self._rebuild())
+        g.add(self.hold_row)
 
         g = Adw.PreferencesGroup(title="On the radio")
         page.add(g)
@@ -205,7 +215,9 @@ class SplashPage(Gtk.Box):
         bg = tuple(round(v * 255) for v in (rgba.red, rgba.green, rgba.blue))
         return dict(mode=splash.FIT_MODES[self.fit_row.get_selected()][0], bg=bg,
                     still_ms=splash.STILL_SECONDS[self.still_row.get_selected()] * 1000,
-                    every=EVERY[self.every_row.get_selected()])
+                    every=EVERY[self.every_row.get_selected()],
+                    plays=splash.PLAYS[self.plays_row.get_selected()],
+                    hold_ms=splash.HOLD_SECONDS[self.hold_row.get_selected()] * 1000)
 
     def _rebuild(self):
         if not self.path:
@@ -238,7 +250,7 @@ class SplashPage(Gtk.Box):
         self.file_label.set_text("Can't read that file")
         self.room_row.set_subtitle(str(e))
         self.room_bar.set_value(0)
-        for row in (self.size_row, self.fit_row, self.still_row, self.every_row):
+        for row in (self.size_row, self.fit_row, self.still_row, self.every_row, self.plays_row, self.hold_row):
             row.set_visible(False)
         self._stop()
         self.stack.set_visible_child_name("empty")
@@ -259,13 +271,15 @@ class SplashPage(Gtk.Box):
         self.fit_row.set_visible(src.needs_resize)
         self.still_row.set_visible(not src.animated)
         self.every_row.set_visible(src.animated)
+        self.plays_row.set_visible(src.animated)
+        self.hold_row.set_visible(src.animated)
 
         kb = (len(built.blob) + 1023) // 1024
         if built.fits:
-            self.room_row.set_subtitle(f"{kb} KB of 768 KB ({built.percent:.0f} %) · sending takes "
+            self.room_row.set_subtitle(f"{kb} KB of 500 KB ({built.percent:.0f} %) · sending takes "
                                        f"{send_time(built.upload_seconds)} · plays for {_duration(built.duration_ms)}")
         else:
-            self.room_row.set_subtitle(f"{kb} KB: too big for the radio's 768 KB. Use fewer frames, a shorter "
+            self.room_row.set_subtitle(f"{kb} KB: too big for the radio's 500 KB. Use fewer frames, a shorter "
                                        "animation, or one with fewer changes between frames.")
         self.room_bar.set_value(min(100, built.percent))
 

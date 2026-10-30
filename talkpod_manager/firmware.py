@@ -110,7 +110,7 @@ def check_for_radio(image, radio_cls):
     """Refuse images that can't be for the connected model."""
     if image.problems:
         raise FirmwareError("Not flashing this file: " + "; ".join(image.problems))
-    if radio_cls is rio.mml_jc8810.A36plusRadio and len(image.data) > MAX_5W_BYTES:
+    if rio.base_model(radio_cls) is rio.mml_jc8810.A36plusRadio and len(image.data) > MAX_5W_BYTES:
         raise FirmwareError("This file is too big for an A36plus 5 W / A36SE (it looks like 8 W / MAX "
                             "firmware). Not flashing it.")
 

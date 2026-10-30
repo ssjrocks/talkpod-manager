@@ -123,7 +123,10 @@ def send(port, pixels: bytes, progress=None):
     """Send a 128x128 RGB565 picture to the radio's boot logo."""
     if len(pixels) != IMAGE_BYTES:
         raise ValueError(f"picture must be {IMAGE_BYTES} bytes, got {len(pixels)}")
-    _radio.identify(port)  # fails early (and clearly) if the radio isn't there or isn't an A36plus
+    _, ident = _radio.identify(port)  # fails early (and clearly) if the radio isn't there or isn't an A36plus
+    if ident.startswith(_radio.CUSTOM_FIRMWARE_PREFIX):
+        raise LogoError("The radio runs Talkpod Super Firmware, which plays a boot animation instead of "
+                        "this picture: use the Splash page.")
 
     s = _radio._open(port, 57600, timeout=1.0)
     try:

@@ -70,12 +70,12 @@ def row_for(setting, on_change=None, help_table=None):
     return row
 
 
-def add_group(page, group, on_change, collapse_over=None, title=None, skip=()):
+def add_group(page, group, on_change, collapse_over=None, title=None, skip=(), sensitive=True):
     """Add a RadioSettingGroup to an Adw.PreferencesPage. Groups longer than collapse_over go in
-    an expander so the page stays scannable."""
+    an expander so the page stays scannable. sensitive=False: shown, but greyed out."""
     items = [el for el in group if el.get_name() not in skip]
     pg = Adw.PreferencesGroup(title=title or group.get_shortname(),
-                              description=descriptions.GROUPS.get(group.get_name()))
+                              description=descriptions.GROUPS.get(group.get_name()), sensitive=sensitive)
     page.add(pg)
     target = pg
     if collapse_over is not None and len(items) > collapse_over:
@@ -90,5 +90,6 @@ def add_group(page, group, on_change, collapse_over=None, title=None, skip=()):
             else:
                 target.add(row)
         else:  # nested group
-            add_group(page, el, on_change, collapse_over, title=f"{pg.get_title()}: {el.get_shortname()}", skip=skip)
+            add_group(page, el, on_change, collapse_over, title=f"{pg.get_title()}: {el.get_shortname()}", skip=skip,
+                      sensitive=sensitive)
     return pg
