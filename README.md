@@ -44,10 +44,11 @@ Australian A36SE with firmware 1.26). The radio's firmware decides which frequen
 transmit on. Read and Write work with Talkpod's firmware, VR2TE's builds of it and Talkpod Super
 Firmware 1.1 and later. All of them keep channels in the same layout, so images move between them.
 The app shows which firmware it read and greys out what that firmware doesn't use (the data stays):
-- Super Firmware ignores channel encryption and PTT-ID;
-- it keeps its own settings instead of the stock menu settings. From 1.13 they're on the Settings page
-  (squelch, step, dual watch, backlight, TX timeout, sounds, messages, APRS, pager, scramble key), and
-  Read and Write carry them like the channels.
+- Super Firmware 1.14 and later use the stock settings, apart from the few greyed out. Before that it
+  ignored them, along with channel encryption (used from 1.16) and PTT-ID (from 1.14);
+- it keeps some settings of its own as well. From 1.13 they're on the Settings page (step, dual watch,
+  backlight, messages, APRS, pager, scramble key and so on), and Read and Write carry them like the
+  channels.
 
 The radio protocol and memory layout come from CHIRP's `mml_jc8810` driver, which this app uses as
 a library. The boot-logo protocol was worked out from Talkpod's Windows "Import Picture" tool
@@ -124,12 +125,12 @@ The splash format and the firmware's serial commands are described in
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release; 1.13 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch: dual-watch interface, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.17 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
 - **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
-  against the SHA-256 GitHub publishes with it. A copy of 1.13 comes with the app for use offline.
+  against the SHA-256 GitHub publishes with it. A copy of 1.17 comes with the app for use offline.
 - **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
   pinned in the app. A changed file is refused.
 - **Your own file:** "A firmware file" takes any `.kdhx`.

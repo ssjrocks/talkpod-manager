@@ -3,7 +3,7 @@
 No third-party firmware is copied into this app. A build is downloaded from its author's GitHub
 when it's chosen, and it must match a SHA-256 before it goes anywhere near a radio:
 - Talkpod Super Firmware: the newest release of ssjrocks/talkpod-super-firmware, checked against
-  the digest GitHub publishes with the release asset. A copy of 1.13 ships with the app for when
+  the digest GitHub publishes with the release asset. A copy of 1.17 ships with the app for when
   there is no internet (and is offered whenever GitHub only has older releases).
 - VR2TE's "Super" builds of Talkpod's firmware: files from a pinned commit of
   VR2TE/Talkpod-A36plus-Firmware, checked against checksums pinned here. Talkpod's own firmware
@@ -58,21 +58,23 @@ class Build:
 TSF = Build(
     key="tsf",
     title="Talkpod Super Firmware",
-    version="1.13",
+    version="1.17",
     page=TSF_PAGE,
-    summary="New firmware written from scratch: dual-watch interface, FM/AM receive, wide transmit range "
-            "(108–138 and 406.0–406.1 MHz blocked), CTCSS/DCS, repeater shifts, UV-K5-compatible text messages, "
-            "APRS, POCSAG pager, a keyed rolling voice scrambler and an animated boot splash. Read and Write keep "
-            "working, and the Settings page shows its own settings.",
+    summary="New firmware written from scratch, with the stock settings: dual-watch interface, FM/AM receive, "
+            "SSB receive, a frequency scanner, wide transmit range (108–138 and 406.0–406.1 MHz blocked), "
+            "CTCSS/DCS, repeater shifts, UV-K5-compatible text messages, APRS, POCSAG pager, a keyed rolling voice "
+            "scrambler and an animated boot splash. Read and Write keep working, and the Settings page shows its "
+            "own settings.",
     warning="It transmits across the chip's whole range except the blocked bands, so stay within your licence. "
-            "The stock menu settings (VOX, roger beep, side keys and so on) aren't used by this version yet; "
-            "they stay on the radio for stock firmware.",
+            "The stock settings already on the radio take effect, so check Roger, the side keys, Menu exit and Battery "
+            "save afterwards. In this version the FM radio plays no sound, and the frequency scanner, SSB and most "
+            "stock settings aren't tested on air yet.",
     after="The radio restarts with Talkpod Super Firmware. Read works as before, and the Splash page can now "
           "give it a boot animation.",
-    url=f"https://github.com/{TSF_REPO}/releases/download/v1.13/talkpod-super-firmware-v1.13.kdhx",
-    sha256="07b8d4e7ab4250583ef75f327ba98c6942e53c570a9a50e81262313f5c29b7b2",
-    filename="talkpod-super-firmware-v1.13.kdhx",
-    bundled="talkpod-super-firmware-v1.13.kdhx",
+    url=f"https://github.com/{TSF_REPO}/releases/download/v1.17/talkpod-super-firmware-v1.17.kdhx",
+    sha256="45d22d281b23a51f529a41430bec3de05daa042f47f3cd5c34b37d4de31a3518",
+    filename="talkpod-super-firmware-v1.17.kdhx",
+    bundled="talkpod-super-firmware-v1.17.kdhx",
 )
 
 _VR2TE_SUMMARY = ("VR2TE's research build of Talkpod's own firmware, with wider ranges: transmit 18–108, 136–350 and "
