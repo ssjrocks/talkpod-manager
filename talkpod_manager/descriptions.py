@@ -203,13 +203,19 @@ GROUPS = {
 
 # Per-channel extras (channel editor)
 EXTRAS = {
-    "encrypt": S("Voice privacy on this channel: only radios with the same setting hear you clearly; "
-                 "everyone else hears garble. It isn't secure encryption, and repeaters can't relay it.",
-                 "Private chat between your own Talkpod radios. Leave Off on shared channels such as UHF CB.",
+    "encrypt": S("Stock firmware's ENCRY: a private sub-audible code sent with your voice. Radios set to the "
+                 "same code open their squelch only for it, so others on the channel stay quiet, but "
+                 "your voice itself is sent in the clear: any radio with open squelch hears it.",
+                 "Keeping your own Talkpods quiet for everyone else's traffic. Use Scramble for privacy.",
                  "32"),
-    "scramble": S("Voice scrambler on this channel: only radios with the same scrambler setting hear you "
-                  "clearly. Not secure, and won't pass through repeaters.",
-                  "Casual privacy between compatible radios. Leave Off on shared channels."),
+    "scramble": S("Voice scrambler (Talkpod Super Firmware). 2600-3500 Hz turn the voice upside down around "
+                  "that frequency, as the UV-K5's scrambler types 1-10 do, so UV-K5s set to the same type "
+                  "hear you clearly; words can still be made out by ear. Rolling (Super Firmware 1.12+) "
+                  "keeps moving that frequency, from the Scramble key set in each radio's menu: much harder "
+                  "to follow, but only Super Firmware radios with the same key can listen, and the channel "
+                  "then doesn't receive text messages. Privacy, not security; won't pass repeaters.",
+                  "Rolling between your own Super Firmware radios; a fixed frequency to talk with UV-K5s. "
+                  "Leave Off on shared channels."),
     "bcl": S("Busy channel lockout: stops you transmitting while someone else is already transmitting on "
              "this channel.",
              "Good manners on shared channels and repeaters. Turn off if constant noise on the channel keeps "

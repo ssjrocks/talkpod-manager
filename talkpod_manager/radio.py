@@ -27,6 +27,18 @@ ACK = b"\x06"
 # Most specific first: the 8 W fingerprints are also listed under the 5 W model in CHIRP.
 MODELS = [mml_jc8810.A36plus8wRadio, mml_jc8810.A36plusRadio]
 
+# The channel's 6-bit scramble field. CHIRP offers Off, SCRAM1 (4) and SCRAM2 (8). Talkpod Super
+# Firmware 1.12 reads 4 x type as the UV-K5's ten inversion types (2600-3500 Hz) and 60 as its rolling
+# scrambler; stock firmware doesn't use the field. CHIRP's driver reads this list on every
+# get_memory(), so extending it here lets every image show and keep those values, whichever driver
+# class opened it.
+SCRAMBLE_ROLLING = 60
+mml_jc8810.SCRAMBLE_VALUEMAP = (
+    [("Off", 0)]
+    + [(f"{2500 + 100 * t} Hz" + (f" (SCRAM{t})" if t <= 2 else ""), 4 * t) for t in range(1, 11)]
+    + [("Rolling", SCRAMBLE_ROLLING)]
+)
+
 # USB-serial chips used by K-plug programming cables.
 KNOWN_CABLES = {
     (0x1A86, 0x7523): "CH340 cable",

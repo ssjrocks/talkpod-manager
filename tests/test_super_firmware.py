@@ -132,3 +132,25 @@ def test_super_firmware_1_0_cant_be_read(monkeypatch, image):
     attach(monkeypatch, FakeRadio(b"A36CFW01", memory_of(image), version="1.00"))
     with pytest.raises(radio.RadioError, match="Super Firmware 1.00, which can't be read"):
         radio.download("/dev/fake")
+
+
+def scramble_of(mem):
+    return next(s for s in mem.extra if s.get_name() == "scramble").value
+
+
+@pytest.mark.parametrize("raw, label", [(0, "Off"), (4, "2600 Hz (SCRAM1)"), (8, "2700 Hz (SCRAM2)"),
+                                        (12, "2800 Hz"), (40, "3500 Hz"), (60, "Rolling")])
+def test_scramble_values_of_super_firmware_read_and_round_trip(image, raw, label):
+    image._memobj.memory[10].scramble = raw            # channel 11
+    m = image.get_memory(11)
+    assert str(scramble_of(m)) == label
+    copy = radio.copy_radio(image)                     # an image of either firmware keeps the value
+    copy.set_memory(m)
+    assert int(copy._memobj.memory[10].scramble) == raw
+
+
+def test_choosing_rolling_writes_the_firmwares_value(image):
+    m = image.get_memory(11)
+    scramble_of(m).set_value("Rolling")
+    image.set_memory(m)
+    assert int(image._memobj.memory[10].scramble) == radio.SCRAMBLE_ROLLING == 60
