@@ -214,5 +214,6 @@ def apply(radio, setting, fw=None):
         payload = struct.pack(PAGER_FMT, int(v["pager_ric"]), PAGER_SPEED.index(v["pager_speed"]),
                               int(v["pager_invert"]))
     else:
-        payload = struct.pack(KEY_FMT, v["scramble_key"].encode())
+        # the firmware keeps its frequency scanner's range behind the key
+        payload = struct.pack(KEY_FMT, v["scramble_key"].encode()) + (record(SCRAMBLE, data) or b"")[15:]
     write(radio, area, payload)

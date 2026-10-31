@@ -80,6 +80,15 @@ def test_text_settings(image):
         setting(ts.group(image), "aprs_call").value.set_value("too-long-call")
 
 
+def test_the_scanner_range_behind_the_key_survives_a_new_key(image):
+    change(image, "scramble_key", "old")
+    range_bytes = struct.pack("<IIB", 12150000, 12190000, 4)
+    ts.write(image, ts.SCRAMBLE, struct.pack(ts.KEY_FMT, b"old") + range_bytes)
+    change(image, "scramble_key", "new key")
+    r = ts.record(ts.SCRAMBLE, image.get_mmap().get_packed())
+    assert r[:7] == b"new key" and r[15:] == range_bytes and ts.values(image)["scramble_key"] == "new key"
+
+
 def test_write_sends_them_only_when_the_image_has_them(monkeypatch, image):
     in_range = lambda writes: [a for a in writes if ts.BASE <= a < ts.END]   # noqa: E731
     fake = FakeRadio(radio.SUPER_IDENT, memory_of(image), version="1.13")
