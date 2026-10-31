@@ -91,7 +91,12 @@ def test_write_sends_them_only_when_the_image_has_them(monkeypatch, image):
     fake.writes.clear()
     radio.upload("/dev/fake", edited)
     assert in_range(fake.writes)
-    assert ts.values(radio.download("/dev/fake"))["scramble_key"] == "abc"
+    back = radio.download("/dev/fake")
+    assert ts.values(back)["scramble_key"] == "abc"
+    assert radio.compare(edited, back) == []            # the read-back check covers them
+
+    fake.memory[ts.BASE + 3 * ts.SECTOR + 8] ^= 1
+    assert radio.compare(edited, radio.download("/dev/fake")) == [ts.BASE + 3 * ts.SECTOR + 8]
 
 
 def test_stock_radios_never_get_them(monkeypatch, image):
@@ -102,6 +107,7 @@ def test_stock_radios_never_get_them(monkeypatch, image):
     attach(monkeypatch, fake)
     radio.upload("/dev/fake", edited)
     assert not [a for a in fake.writes if ts.BASE <= a < ts.END]
+    assert radio.compare(edited, radio.download("/dev/fake")) == []    # not sent, so not compared
 
 
 @pytest.mark.parametrize("version, own", [("1.12", False), ("1.13", True), ("1.20", True)])

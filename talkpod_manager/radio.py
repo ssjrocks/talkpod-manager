@@ -245,15 +245,18 @@ def upload(port, radio, progress=None):
             writer.pipe = None
 
 
-def written_bytes(radio):
+def written_bytes(radio, ranges=None):
     """The parts of the image an upload sends, as {start: bytes}."""
     data = radio.get_mmap().get_packed()
-    return {start: bytes(data[start:end]) for start, end in radio._ranges}
+    return {start: bytes(data[start:end]) for start, end in ranges or radio._ranges}
 
 
 def compare(written, read_back):
     """Address ranges whose bytes differ between what was written and what the radio holds."""
-    a, b = written_bytes(written), written_bytes(read_back)
+    ranges = list(written._ranges)
+    if isinstance(read_back, SuperFirmwareRadio) and tsf_settings.present(written):
+        ranges.append(SuperFirmwareRadio.SETTINGS_RANGE)   # upload() sent these too
+    a, b = written_bytes(written, ranges), written_bytes(read_back, ranges)
     diffs = []
     for start, data in a.items():
         other = b[start]
