@@ -60,11 +60,10 @@ TSF = Build(
     title="Talkpod Super Firmware",
     version="1.17",
     page=TSF_PAGE,
-    summary="New firmware written from scratch, with the stock settings: dual-watch interface, FM/AM receive, "
-            "SSB receive, a frequency scanner, wide transmit range (108–138 and 406.0–406.1 MHz blocked), "
-            "CTCSS/DCS, repeater shifts, UV-K5-compatible text messages, APRS, POCSAG pager, a keyed rolling voice "
-            "scrambler and an animated boot splash. Read and Write keep working, and the Settings page shows its "
-            "own settings.",
+    summary="New firmware with the stock settings: dual-watch interface, FM/AM and SSB receive, a frequency "
+            "scanner, wide transmit range (108–138 and 406.0–406.1 MHz blocked), CTCSS/DCS, "
+            "UV-K5-compatible text messages, APRS, POCSAG pager, a keyed rolling voice scrambler and an animated "
+            "boot splash. Read and Write keep working.",
     warning="It transmits across the chip's whole range except the blocked bands, so stay within your licence. "
             "The stock settings already on the radio take effect, so check Roger, the side keys, Menu exit and Battery "
             "save afterwards. In this version the FM radio plays no sound, and the frequency scanner, SSB and most "

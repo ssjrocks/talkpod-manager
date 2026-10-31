@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Render the app's pages to PNGs for checking the UI (development tool).
 
-Usage: tools/screenshot.py IMAGE.img OUT_DIR [PICTURE [ANIMATION]]
-       (PICTURE: shown on the Boot logo page; ANIMATION: on the Boot splash page)
+Usage: tools/screenshot.py IMAGE.img OUT_DIR [PICTURE [ANIMATION [SUPER_VERSION]]]
+       (PICTURE: shown on the Boot logo page; ANIMATION: on the Boot splash page; SUPER_VERSION: show
+       the pages as they are for a radio running that Talkpod Super Firmware)
 Run it on a virtual X display to keep windows off the desktop:
   GDK_BACKEND=x11 xvfb-run -s "-screen 0 1400x1000x24" tools/screenshot.py ...
 State and backups go to a temporary folder; nothing touches a radio.
 """
 
+import faulthandler
 import os
 import shutil
 import sys
@@ -17,12 +19,15 @@ from pathlib import Path
 IMAGE, OUT = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
 PICTURE = Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else None
 ANIMATION = Path(sys.argv[4]).resolve() if len(sys.argv) > 4 else None
+SUPER = sys.argv[5] if len(sys.argv) > 5 else None
 OUT.mkdir(parents=True, exist_ok=True)
 tmp = Path(tempfile.mkdtemp(prefix="tpm-shot-"))
 os.environ["XDG_STATE_HOME"] = str(tmp / "state")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from talkpod_manager import appreports, paths, updater  # noqa: E402
+faulthandler.dump_traceback_later(120, exit=True)  # a hung run ends by itself
+
+from talkpod_manager import appreports, paths, radio as rio, updater  # noqa: E402
 
 appreports.init = lambda *a, **k: None  # test runs must not send error reports
 paths.backups_dir = lambda: (tmp / "backups").mkdir(exist_ok=True) or tmp / "backups"
@@ -46,6 +51,11 @@ def capture(widget, name):
     print("saved", path, flush=True)
 
 
+def as_super(win, version):
+    fw = rio.Firmware(rio.CUSTOM_FIRMWARE_PREFIX + b"02", version)
+    win.set_radio(win.radio, f"Read from the radio ({fw.name})", firmware=fw)
+
+
 class ShotApp(App):
     def do_activate(self):
         App.do_activate(self)
@@ -54,10 +64,14 @@ class ShotApp(App):
         steps = [
             lambda: capture(win, "0-empty"),
             lambda: win.open_image(str(IMAGE)),
+            lambda: SUPER and as_super(win, SUPER),
             lambda: capture(win, "1-channels"),
+            lambda: win.set_default_size(1200, 1180),
             lambda: win.edit_channel(101),
+            lambda: win.get_visible_dialog().set_content_height(1100),
             lambda: capture(win, "2-edit-channel"),
             lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
+            lambda: win.set_default_size(1200, 820),
             lambda: win.stack.set_visible_child_name("settings"),
             lambda: capture(win, "3-settings"),
             lambda: win.stack.set_visible_child_name("logo"),
@@ -70,6 +84,7 @@ class ShotApp(App):
             lambda: win.set_default_size(1200, 1640),
             lambda: capture(win, "4-splash-full"),
             lambda: win.set_default_size(1200, 820),
+            lambda: win.stack.set_visible_child_name("channels"),
             lambda: win.plan(),
             lambda: capture(win, "5-plan"),
             lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
