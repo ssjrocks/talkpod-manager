@@ -34,7 +34,7 @@ paths.backups_dir = lambda: (tmp / "backups").mkdir(exist_ok=True) or tmp / "bac
 updater.due = lambda: False
 
 from talkpod_manager.app import App  # noqa: E402
-from gi.repository import GLib, Graphene, Gtk  # noqa: E402
+from gi.repository import Gio, GLib, Graphene, Gtk  # noqa: E402
 
 
 def capture(widget, name):
@@ -57,6 +57,10 @@ def as_super(win, version):
 
 
 class ShotApp(App):
+    def __init__(self):
+        super().__init__()
+        self.set_flags(self.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)  # or it hands over to a running copy
+
     def do_activate(self):
         App.do_activate(self)
         win = self.get_active_window()
