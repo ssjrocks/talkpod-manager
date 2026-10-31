@@ -38,6 +38,8 @@ and **A36plus** handheld radios over the K-plug programming cable.
 
 ## Supported radios
 
+<img src="docs/screenshots/radio.jpg" alt="A Talkpod A36SE receiving on a repeater channel in dual watch" width="220" align="right">
+
 Talkpod A36SE (5 W; US GMRS, Australian UHF CB and international versions) and A36plus 5 W / 8 W
 (A36plus MAX), with the firmware versions [CHIRP](https://chirpmyradio.com) supports (tested on an
 Australian A36SE with firmware 1.26). The radio's firmware decides which frequencies it will
