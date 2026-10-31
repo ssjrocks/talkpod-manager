@@ -22,6 +22,7 @@ BASE, SECTOR, REC, MAGIC, PAYLOAD = 0x4000, 0x1000, 32, 0xA36C, 26
 END = BASE + 4 * SECTOR
 MAIN, APRS, PAGER, SCRAMBLE = range(4)
 FIRST_VERSION = (1, 13)
+STOCK_VERSION = (1, 14)             # from here it uses the stock settings too (radio.Firmware.stock_blocks)
 PREFIX = "tsf_"
 
 STEPS = ["2.5 kHz", "5 kHz", "6.25 kHz", "10 kHz", "12.5 kHz", "25 kHz", "100 kHz", "1 MHz"]
@@ -36,15 +37,18 @@ TEXT_CHARS = "".join(chr(c) for c in range(32, 127))
 # saved_t: two slots (u8 is_channel, u8 flags, u16 channel, u32 vfo), then u8 selected, dual, squelch,
 # step, backlight, sounds (1 key beep, 2 voice), tot, msg (speed | 4: no receipts). Without a record
 # the slots say "keep": channel 0 and VFO 0 aren't valid, so the firmware leaves its slots alone.
-MAIN_FMT = "<BBHIBBHI8B"
-MAIN_DEFAULT = struct.pack(MAIN_FMT, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 4, 2, 3, 4, 0)
+# From 1.14 a 25th byte says dual, squelch, backlight, sounds and tot moved to the stock record, where
+# the firmware reads them; older firmware refuses a record longer than its own 24 bytes.
+MAIN_FMT = "<BBHIBBHI9B"
+MAIN_DEFAULT = struct.pack(MAIN_FMT, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 4, 2, 3, 4, 0, 0)
+MOVED_TO_STOCK = ("squelch", "dual", "backlight", "tot", "beep", "voice")
 APRS_FMT, APRS_DEFAULT = "<10sB15s", struct.pack("<10sB15s", b"", 1, b"A36SE CFW")
 PAGER_FMT, PAGER_DEFAULT = "<IBB", struct.pack("<IBB", 1234567, 1, 0)
 KEY_FMT, KEY_DEFAULT = "<15s", bytes(15)
 DEFAULTS = {MAIN: MAIN_DEFAULT, APRS: APRS_DEFAULT, PAGER: PAGER_DEFAULT, SCRAMBLE: KEY_DEFAULT}
 
 
-def _crc(b):
+def crc16(b):
     c = 0
     for x in b:
         c ^= x << 8
@@ -66,7 +70,7 @@ def record(area, data):
         if len(r) < REC or r == b"\xff" * REC:
             break
         magic, n = struct.unpack_from("<HB", r)
-        if magic == MAGIC and 0 < n <= PAYLOAD and _crc(r[:30]) == struct.unpack_from("<H", r, 30)[0]:
+        if magic == MAGIC and 0 < n <= PAYLOAD and crc16(r[:30]) == struct.unpack_from("<H", r, 30)[0]:
             found = r[4:4 + n]
     return found
 
@@ -88,7 +92,7 @@ def _payload(data, area):
 def write(radio, area, payload):
     """Put a fresh log with one record for the area into the image."""
     r = struct.pack("<HBB", MAGIC, len(payload), 0) + payload.ljust(PAYLOAD, b"\0")
-    r += struct.pack("<H", _crc(r))
+    r += struct.pack("<H", crc16(r))
     radio.get_mmap().set(BASE + area * SECTOR, r + b"\xff" * (SECTOR - REC))
 
 
@@ -100,7 +104,7 @@ def values(radio):
     """{setting name: value} as the radio will use them."""
     data = _image(radio)
     m = list(struct.unpack(MAIN_FMT, _payload(data, MAIN)))
-    selected, dual, squelch, step, backlight, sounds, tot, msg = m[8:]
+    selected, dual, squelch, step, backlight, sounds, tot, msg = m[8:16]
     call, path, text = struct.unpack(APRS_FMT, _payload(data, APRS))
     ric, pspeed, pinvert = struct.unpack(PAGER_FMT, _payload(data, PAGER))
     (key,) = struct.unpack(KEY_FMT, _payload(data, SCRAMBLE))
@@ -149,11 +153,23 @@ FIELDS = {
 }
 
 
-def group(radio):
+def stock_has_them(radio, fw):
+    """True when the settings of MOVED_TO_STOCK are the stock ones. fw: radio.Firmware, or None for an
+    opened file, where the main record tells."""
+    if fw is not None:
+        return fw.stock_blocks
+    r = record(MAIN, _image(radio))
+    return bool(r and len(r) > 24 and r[24])
+
+
+def group(radio, fw=None):
     """The settings as a CHIRP RadioSettingGroup, named tsf_<field>."""
     v = values(radio)
+    moved = stock_has_them(radio, fw)
     g = RadioSettingGroup("tsf", "Talkpod Super Firmware")
     for name, (title, _area, kind, extra) in FIELDS.items():
+        if moved and name in MOVED_TO_STOCK:
+            continue
         if kind == "int":
             val = RadioSettingValueInteger(extra[0], extra[1], v[name])
         elif kind == "list":
@@ -170,7 +186,7 @@ def owns(setting):
     return setting.get_name().startswith(PREFIX)
 
 
-def apply(radio, setting):
+def apply(radio, setting, fw=None):
     """Write one changed setting into the image (its area as a fresh record)."""
     name = setting.get_name()[len(PREFIX):]
     v = values(radio)
@@ -180,14 +196,17 @@ def apply(radio, setting):
     area = FIELDS[name][1]
     if area == MAIN:
         m = list(struct.unpack(MAIN_FMT, _payload(data, MAIN)))
-        m[8 + 1] = int(v["dual"])
-        m[8 + 2] = int(v["squelch"])
+        moved = stock_has_them(radio, fw)
         m[8 + 3] = STEPS.index(v["step"])
-        m[8 + 4] = BACKLIGHT.index(v["backlight"])
-        m[8 + 5] = int(v["beep"]) | int(v["voice"]) << 1
-        m[8 + 6] = TOT.index(v["tot"])
         m[8 + 7] = MSG_SPEED.index(v["msg_speed"]) | (0 if v["msg_receipts"] else 4)
-        payload = struct.pack(MAIN_FMT, *m)
+        if not moved:
+            m[8 + 1] = int(v["dual"])
+            m[8 + 2] = int(v["squelch"])
+            m[8 + 4] = BACKLIGHT.index(v["backlight"])
+            m[8 + 5] = int(v["beep"]) | int(v["voice"]) << 1
+            m[8 + 6] = TOT.index(v["tot"])
+        m[16] = int(moved)
+        payload = struct.pack(MAIN_FMT, *m)[:25 if moved else 24]
     elif area == APRS:
         payload = struct.pack(APRS_FMT, v["aprs_call"].upper().encode(), APRS_PATH.index(v["aprs_path"]),
                               v["aprs_text"].encode())

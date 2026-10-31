@@ -193,8 +193,9 @@ PATTERNS = [
 
 # Section descriptions on the Settings page
 GROUPS = {
-    "tsf": "Talkpod Super Firmware's own settings: the same as its menu on the radio. Changes here go to "
-           "the radio with Write; changes made on the radio come in with the next Read.",
+    "tsf": "Talkpod Super Firmware's own settings, which stock firmware doesn't have: the same as its menu "
+           "on the radio. Changes here go to the radio with Write; changes made on the radio come in with "
+           "the next Read.",
     "dtmf": "Touch-tone (DTMF) codes the radio can send automatically when you press or release PTT "
             "(PTT-ID), and how fast it sends them. Only needed for group/fleet ID or DTMF-controlled systems.",
     "ani": "The radio's list of identity (ANI) codes. The ANI setting under Basic Settings picks which one "

@@ -154,3 +154,40 @@ def test_choosing_rolling_writes_the_firmwares_value(image):
     scramble_of(m).set_value("Rolling")
     image.set_memory(m)
     assert int(image._memobj.memory[10].scramble) == radio.SCRAMBLE_ROLLING == 60
+
+
+# ---- the stock settings and VFO logs
+
+def raw_log(base, size, map_bytes, records):
+    """A sector as stock leaves it: the bitmap, then the records, the newest last."""
+    sector = bytearray(b"\xff" * 0x1000)
+    for i in range(len(records) - 1):
+        sector[i // 8] &= ~(1 << (i % 8)) & 0xFF
+    for i, r in enumerate(records):
+        body = r.ljust(size - 2, b"\0")
+        crc = radio.tsf_settings.crc16(body)
+        sector[0x10 + i * size:0x10 + (i + 1) * size] = body + crc.to_bytes(2, "little")
+    return bytes(sector)
+
+
+def test_an_image_with_raw_logs_gets_its_live_records_back(image):
+    mm = image.get_mmap()
+    settings = bytes(mm.get(0x9000, 0x40))
+    vfo = bytes(mm.get(0x8000, 0x40))
+    mm.set(0x9000, raw_log(0x9000, 0x60, 6, [bytes(0x40), bytes(0x20) * 2, settings]))
+    mm.set(0x8000, raw_log(0x8000, 0x42, 8, [bytes(0x40), vfo]))
+    radio.repair_stock_blocks(image)
+    assert mm.get(0x9000, 0x40) == settings and mm.get(0x8000, 0x40) == vfo
+    before = memory_of(image)
+    radio.repair_stock_blocks(image)                    # a healthy image stays as it is
+    assert memory_of(image) == before
+
+
+@pytest.mark.parametrize("version, sent", [("1.13", False), ("1.14", True)])
+def test_the_stock_blocks_only_go_to_firmware_that_shows_them(monkeypatch, image, version, sent):
+    fake = FakeRadio(radio.SUPER_IDENT, memory_of(image), version=version)
+    attach(monkeypatch, fake)
+    radio.upload("/dev/fake", radio.copy_radio(image))
+    assert (0x9000 in fake.writes) is sent and (0x8000 in fake.writes) is sent
+    assert 0x0000 in fake.writes
+    assert radio.compare(image, radio.download("/dev/fake")) == []

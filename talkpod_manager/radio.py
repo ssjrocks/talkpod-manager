@@ -20,6 +20,7 @@ from chirp import directory, errors  # noqa: E402
 from chirp.drivers import mml_jc8810  # noqa: E402
 
 from . import tsf_settings  # noqa: E402
+from .updater import parse_version  # noqa: E402
 
 LOG = logging.getLogger(__name__)
 
@@ -118,6 +119,31 @@ class SuperFirmwareRadio(mml_jc8810.A36plusRadio):
     SETTINGS_RANGE = (tsf_settings.BASE, tsf_settings.END)
 
 
+# Stock keeps VFOs and settings in wear-levelling logs: a bitmap, then records from +0x10. Program mode
+# shows the newest record as the 64 bytes at the log's start. Super Firmware does the same from 1.14;
+# before that it showed the raw log, so images read through it hold the bitmap there.
+STOCK_LOGS = ((0x8000, 0x42, 8), (0x9000, 0x60, 6))     # start, record size, bitmap bytes
+STOCK_BLOCK = 0x40
+
+
+def repair_stock_blocks(radio):
+    """Put the live records back into an image that holds raw logs (read from Super Firmware < 1.14)."""
+    mm = radio.get_mmap()
+    data = mm.get_packed()
+    for base, size, map_bytes in STOCK_LOGS:
+        if data[base + map_bytes:base + 0x10] != b"\xff" * (0x10 - map_bytes):
+            continue
+        bitmap = data[base:base + map_bytes]
+        slot = next((i * 8 + b for i in range(map_bytes) for b in range(8) if bitmap[i] >> b & 1), None)
+        if slot is None:
+            continue
+        record = data[base + 0x10 + slot * size:base + 0x10 + (slot + 1) * size]
+        if tsf_settings.crc16(record[:size - 2]) == int.from_bytes(record[size - 2:], "little"):
+            mm.set(base, record[:STOCK_BLOCK])
+            LOG.info("image: live record of the log at %#x restored", base)
+    radio.process_mmap()
+
+
 class Firmware:
     """What the radio runs: kind "stock" or "super", the ident, and Super Firmware's version."""
 
@@ -125,6 +151,11 @@ class Firmware:
         self.ident = ident
         self.kind = "super" if ident.startswith(CUSTOM_FIRMWARE_PREFIX) else "stock"
         self.version = version
+
+    @property
+    def stock_blocks(self):
+        """True when program mode shows the stock settings and VFO records, as stock does."""
+        return self.kind == "stock" or parse_version(self.version or "0") >= tsf_settings.STOCK_VERSION
 
     @property
     def name(self):
@@ -217,12 +248,13 @@ def download(port, progress=None):
             raise RadioError(f"Reading the radio failed: {e}") from e
     radio.pipe = None
     radio.talkpod_firmware = fw
+    repair_stock_blocks(radio)
     return radio
 
 
 def upload(port, radio, progress=None):
     """Write an image to the radio. Refuses if the radio is a different model."""
-    cls, ident = identify(port)
+    cls, ident, fw = identify(port, with_firmware=True)
     if base_model(cls) is not model_class(radio):
         raise RadioError(
             f"This image is for a {describe_model(model_class(radio))}, but the radio is a "
@@ -231,9 +263,8 @@ def upload(port, radio, progress=None):
     LOG.info("uploading to %s (%s, ident %s)", port, cls.MODEL, ident.hex())
     # a driver object for the radio's own firmware (its ident check), holding this image
     writer = radio if type(radio) is cls else cls(radio.get_mmap())
-    if cls is SuperFirmwareRadio and tsf_settings.present(writer):
-        # the firmware's own settings too; an image without them leaves the radio's alone
-        writer._ranges = sorted(cls._ranges + [cls.SETTINGS_RANGE])
+    if cls is SuperFirmwareRadio:
+        writer._ranges = _ranges_for(cls._ranges, fw, tsf_settings.present(writer))
     with _open(port, cls.BAUD_RATE) as pipe:
         writer.pipe = pipe
         writer.status_fn = _status_cb(progress, "Writing to radio")
@@ -245,6 +276,17 @@ def upload(port, radio, progress=None):
             writer.pipe = None
 
 
+def _ranges_for(ranges, fw, own_settings):
+    """What to write to Super Firmware: its own settings when the image has them (one without leaves
+    the radio's alone), and not the stock blocks before 1.14, which would land on the raw logs."""
+    out = list(ranges)
+    if not fw.stock_blocks:
+        out = [r for r in out if r[0] not in (log[0] for log in STOCK_LOGS)]
+    if own_settings:
+        out.append(SuperFirmwareRadio.SETTINGS_RANGE)
+    return sorted(out)
+
+
 def written_bytes(radio, ranges=None):
     """The parts of the image an upload sends, as {start: bytes}."""
     data = radio.get_mmap().get_packed()
@@ -254,8 +296,8 @@ def written_bytes(radio, ranges=None):
 def compare(written, read_back):
     """Address ranges whose bytes differ between what was written and what the radio holds."""
     ranges = list(written._ranges)
-    if isinstance(read_back, SuperFirmwareRadio) and tsf_settings.present(written):
-        ranges.append(SuperFirmwareRadio.SETTINGS_RANGE)   # upload() sent these too
+    if isinstance(read_back, SuperFirmwareRadio):       # what upload() sent
+        ranges = _ranges_for(ranges, read_back.talkpod_firmware, tsf_settings.present(written))
     a, b = written_bytes(written, ranges), written_bytes(read_back, ranges)
     diffs = []
     for start, data in a.items():
@@ -311,7 +353,9 @@ def load_image(path):
         raise RadioError(f"Couldn't open {name}: {e}") from e
     if model_class(loaded) is None:
         raise RadioError(f"{name} is a {loaded.get_name()} image, not a Talkpod A36plus / A36SE.")
-    return copy_radio(loaded)
+    image = copy_radio(loaded)
+    repair_stock_blocks(image)
+    return image
 
 
 def copy_radio(radio):

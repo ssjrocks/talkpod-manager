@@ -44,24 +44,26 @@ def test_a_change_writes_its_area_as_one_fresh_record(image):
     assert data[ts.BASE + ts.SECTOR:ts.END] == b"\xff" * (3 * ts.SECTOR)   # other areas untouched
     assert ts.present(image) and ts.values(image)["squelch"] == 5
     # slots say "keep" (channel 0, VFO 0): the firmware leaves its own slots alone
-    assert struct.unpack_from(ts.MAIN_FMT, ts.record(ts.MAIN, data))[:8] == (1, 0, 0, 0, 1, 0, 0, 0)
+    assert struct.unpack(ts.MAIN_FMT, ts.record(ts.MAIN, data) + b"\0")[:8] == (1, 0, 0, 0, 1, 0, 0, 0)
 
 
 def test_the_newest_record_wins_and_slots_are_kept(image):
-    old = struct.pack(ts.MAIN_FMT, 1, 4, 11, 47667500, 0, 2, 40, 47740000, 1, 0, 3, 2, 0, 1, 5, 6)
-    newer = struct.pack(ts.MAIN_FMT, 1, 4, 11, 47667500, 0, 2, 40, 47740000, 1, 0, 7, 2, 0, 1, 5, 6)
+    old = struct.pack(ts.MAIN_FMT, 1, 4, 11, 47667500, 0, 2, 40, 47740000, 1, 0, 3, 2, 0, 1, 5, 6, 0)[:24]
+    newer = struct.pack(ts.MAIN_FMT, 1, 4, 11, 47667500, 0, 2, 40, 47740000, 1, 0, 7, 2, 0, 1, 5, 6, 0)[:24]
     ts.write(image, ts.MAIN, old)
     mm = image.get_mmap()
     second = bytearray(mm.get(ts.BASE, 32))
     second[4:4 + 24] = newer
-    second[30:32] = struct.pack("<H", ts._crc(bytes(second[:30])))
+    second[30:32] = struct.pack("<H", ts.crc16(bytes(second[:30])))
     mm.set(ts.BASE + 32, bytes(second))
     v = ts.values(image)
     assert (v["squelch"], v["dual"], v["backlight"], v["tot"], v["beep"], v["voice"]) == (7, False, "Always on",
                                                                                           "5 min", True, False)
     assert (v["msg_speed"], v["msg_receipts"]) == ("450 bit/s", False)
     change(image, "tot", "Off")
-    m = struct.unpack(ts.MAIN_FMT, ts.record(ts.MAIN, image.get_mmap().get_packed()))
+    r = ts.record(ts.MAIN, image.get_mmap().get_packed())
+    assert len(r) == 24                                 # as firmware before 1.14 reads them
+    m = struct.unpack(ts.MAIN_FMT, r + b"\0")
     assert m[:8] == (1, 4, 11, 47667500, 0, 2, 40, 47740000) and m[8 + 2] == 7 and m[8 + 6] == 0
 
 
@@ -110,9 +112,22 @@ def test_stock_radios_never_get_them(monkeypatch, image):
     assert radio.compare(edited, radio.download("/dev/fake")) == []    # not sent, so not compared
 
 
+def test_from_1_14_the_shared_settings_are_the_stock_ones(image):
+    fw = radio.Firmware(radio.SUPER_IDENT, "1.14")
+    names = {s.get_name() for s in ts.group(image, fw)}
+    assert not names & {ts.PREFIX + n for n in ts.MOVED_TO_STOCK}
+    assert ts.PREFIX + "scramble_key" in names and ts.PREFIX + "step" in names
+    s = setting(ts.group(image, fw), "step")
+    s.value.set_value("25 kHz")
+    ts.apply(image, s, fw)
+    r = ts.record(ts.MAIN, image.get_mmap().get_packed())
+    assert len(r) == 25 and r[24] == 1                  # 1.14's record, marked as moved
+    assert ts.stock_has_them(image, None)               # which an opened file then shows
+
+
 @pytest.mark.parametrize("version, own", [("1.12", False), ("1.13", True), ("1.20", True)])
 def test_which_firmware_has_them(version, own):
     fw = radio.Firmware(radio.SUPER_IDENT, version)
     assert features.own_settings(fw) is own
-    assert ("1.13 or later" in features.settings_note(fw)) is not own
+    assert ("1.13 or later" in features.settings_note(fw)) is not own or version == "1.20"
     assert not features.own_settings(radio.Firmware(b"\x00" * 8))
