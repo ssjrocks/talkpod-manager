@@ -89,6 +89,15 @@ def test_the_scanner_range_behind_the_key_survives_a_new_key(image):
     assert r[:7] == b"new key" and r[15:] == range_bytes and ts.values(image)["scramble_key"] == "new key"
 
 
+@pytest.mark.parametrize("version, encrypt, fm", [("1.14", True, True), ("1.16", False, False), ("1.20", False, False)])
+def test_what_is_greyed_out_follows_the_version(version, encrypt, fm):
+    fw = radio.Firmware(radio.SUPER_IDENT, version)
+    assert ("encrypt" in features.unused_channel_extras(fw)) is encrypt
+    assert features.unused_stock_setting(fw, "fmradio") is fm
+    assert not features.unused_stock_setting(fw, "roger")
+    assert features.unused_stock_setting(fw, "language")
+
+
 def test_write_sends_them_only_when_the_image_has_them(monkeypatch, image):
     in_range = lambda writes: [a for a in writes if ts.BASE <= a < ts.END]   # noqa: E731
     fake = FakeRadio(radio.SUPER_IDENT, memory_of(image), version="1.13")

@@ -11,15 +11,18 @@ from .updater import parse_version
 SUPER_UNUSED_EXTRAS = {
     (1, 10): ("encrypt", "pttid", "scode"),
     (1, 14): ("encrypt",),
+    (1, 16): (),
 }
 
 # stock settings (CHIRP names) Super Firmware acts on, from the version that first did; prefixes for
 # the lists. The rest are greyed out and stay in the radio for stock firmware.
+_STOCK_1_14 = ("sql", "tot", "vox", "voxd", "voice", "abr", "screv", "save", "mdfa", "mdfb", "pttlt", "ani",
+               "skey2_sp", "skey2_lp", "skey3_sp", "topkey_sp", "tone", "ponmsg", "ste", "rpste", "rptrl",
+               "menuquit", "autolk", "dualtx", "almode", "alarmsound", "roger", "rxendtail", "tdr", "beep",
+               "dtmf.dtmfon", "dtmf.dtmfoff", "pttid/", "anicodes/")
 SUPER_STOCK_SETTINGS = {
-    (1, 14): ("sql", "tot", "vox", "voxd", "voice", "abr", "screv", "save", "mdfa", "mdfb", "pttlt", "ani",
-              "skey2_sp", "skey2_lp", "skey3_sp", "topkey_sp", "tone", "ponmsg", "ste", "rpste", "rptrl",
-              "menuquit", "autolk", "dualtx", "almode", "alarmsound", "roger", "rxendtail", "tdr", "beep",
-              "dtmf.dtmfon", "dtmf.dtmfoff", "pttid/", "anicodes/"),
+    (1, 14): _STOCK_1_14,
+    (1, 16): _STOCK_1_14 + ("fmradio",),
 }
 
 
