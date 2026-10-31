@@ -25,7 +25,8 @@ FIRST_VERSION = (1, 13)
 STOCK_VERSION = (1, 14)             # from here it uses the stock settings too (radio.Firmware.stock_blocks)
 PREFIX = "tsf_"
 
-STEPS = ["2.5 kHz", "5 kHz", "6.25 kHz", "10 kHz", "12.5 kHz", "25 kHz", "100 kHz", "1 MHz"]
+STEPS = ["2.5 kHz", "5 kHz", "6.25 kHz", "10 kHz", "12.5 kHz", "25 kHz", "100 kHz", "1 MHz",
+         "1 kHz", "100 Hz", "10 Hz"]           # the last three from 1.17, for SSB
 BACKLIGHT = ["Always on", "10 s", "30 s", "60 s"]
 TOT = ["Off", "30 s", "60 s", "2 min", "3 min", "5 min"]
 MSG_SPEED = ["1200 bit/s", "700 bit/s", "450 bit/s"]
