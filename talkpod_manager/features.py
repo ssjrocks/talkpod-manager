@@ -3,6 +3,7 @@ the radio would ignore. The data itself always stays in the image, for when othe
 stock firmware, VR2TE's builds of it and Talkpod Super Firmware 1.1+ all keep channels and settings
 in the same layout."""
 
+from . import tsf_settings
 from .updater import parse_version
 
 # channel extras (CHIRP names) that Talkpod Super Firmware doesn't act on yet, from the version that
@@ -34,10 +35,19 @@ def unused_channel_extras(fw):
     return {name: why for name in _table(SUPER_UNUSED_EXTRAS, fw)}
 
 
+def own_settings(fw):
+    """True when the firmware keeps its own settings where Read and Write reach them (1.13+)."""
+    return _super(fw) and parse_version(fw.version or "0") >= tsf_settings.FIRST_VERSION
+
+
 def settings_note(fw):
     """Why the stock settings don't apply, or None when the radio uses them."""
     if not _super(fw):
         return None
+    if own_settings(fw):
+        return (f"This radio runs {fw.name}. Its own settings are in the first group below, and Write "
+                "sends them to the radio. It doesn't use the stock settings after them; they stay in the "
+                "radio unchanged, for when it runs stock firmware again.")
     return (f"This radio runs {fw.name}. It keeps its own settings, changed from the radio's menu, so it "
             "doesn't use the stock settings below. They stay in the radio unchanged, for when it runs stock "
-            "firmware again.")
+            "firmware again. Update it to Super Firmware 1.13 or later to edit its settings here.")

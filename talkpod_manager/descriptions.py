@@ -193,6 +193,8 @@ PATTERNS = [
 
 # Section descriptions on the Settings page
 GROUPS = {
+    "tsf": "Talkpod Super Firmware's own settings: the same as its menu on the radio. Changes here go to "
+           "the radio with Write; changes made on the radio come in with the next Read.",
     "dtmf": "Touch-tone (DTMF) codes the radio can send automatically when you press or release PTT "
             "(PTT-ID), and how fast it sends them. Only needed for group/fleet ID or DTMF-controlled systems.",
     "ani": "The radio's list of identity (ANI) codes. The ANI setting under Basic Settings picks which one "
@@ -200,6 +202,36 @@ GROUPS = {
     "custom": "Ready-made names you can give a channel from the radio's own menu (menu 19), without a "
               "computer.",
 }
+
+# Talkpod Super Firmware's own settings (tsf_settings.py); its menu has names, not numbers
+SETTINGS.update({
+    "tsf_squelch": S("How strong a signal must be before the speaker opens. 0 is always open; 1 is stock's "
+                     "level 1, and each step up needs a stronger signal.",
+                     "1 for weak signals, higher if noise keeps opening it."),
+    "tsf_step": S("How far UP / DOWN move a VFO frequency.", "12.5 kHz suits UHF CB; 25 kHz wide channels."),
+    "tsf_dual": S("Watch both slots: the receiver alternates between them and stays on the one with a signal.",
+                  "On to listen to two channels at once."),
+    "tsf_backlight": S("How long the display stays lit after a key.", "Shorter saves battery."),
+    "tsf_tot": S("Stops transmitting after this long, until PTT is released.",
+                 "Guards against a stuck PTT. 3 minutes is the default."),
+    "tsf_beep": S("A beep on key presses.", "Off for quiet use."),
+    "tsf_voice": S("The spoken power-on, channel/frequency mode and high/low prompts.", "Off for quiet use."),
+    "tsf_msg_speed": S("Bit rate of text messages (UV-K5 messenger format). The other radio must use the "
+                       "same speed.", "1200 normally; 700 or 450 for weak signals."),
+    "tsf_msg_receipts": S("Answer each received message with a delivery receipt.",
+                          "On, so senders see a +. Receipts are transmissions too."),
+    "tsf_aprs_call": S("Your callsign with SSID for APRS, e.g. VK2ABC-7. Nothing is sent until it is set.",
+                       "Needed for APRS beacons and messages."),
+    "tsf_aprs_path": S("The digipeater path APRS packets ask for.", "WIDE1-1 for most areas."),
+    "tsf_aprs_text": S("The status text the APRS screen sends as a beacon.", "A short note about the station."),
+    "tsf_pager_ric": S("The pager address (RIC) the Pager screen sends to when no received page is picked.",
+                       "The RIC of the pager you want to reach, 0 to 2097151."),
+    "tsf_pager_speed": S("POCSAG bit rate for sending and receiving pages.", "Match the pagers: often 1200."),
+    "tsf_pager_invert": S("Send the pager FSK the other way up.", "Only if a pager can't decode your pages."),
+    "tsf_scramble_key": S("The key Rolling scramble channels use. Every radio that talks on them needs the "
+                          "same key; PTT on a Rolling channel is refused until one is set.",
+                          "Any text up to 14 characters, shared only with your group."),
+})
 
 # Per-channel extras (channel editor)
 EXTRAS = {

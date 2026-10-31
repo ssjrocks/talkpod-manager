@@ -19,6 +19,8 @@ from serial.tools import list_ports  # noqa: E402
 from chirp import directory, errors  # noqa: E402
 from chirp.drivers import mml_jc8810  # noqa: E402
 
+from . import tsf_settings  # noqa: E402
+
 LOG = logging.getLogger(__name__)
 
 MAGIC = mml_jc8810.A36plusRadio._magic
@@ -112,6 +114,8 @@ class SuperFirmwareRadio(mml_jc8810.A36plusRadio):
     """The A36plus 5 W memory, read and written through Talkpod Super Firmware. Images stay plain
     A36plus images (same vendor and model), so they move freely between stock and Super Firmware."""
     _fingerprint = [SUPER_IDENT]
+    # what upload() adds when the image holds the firmware's own settings (1.13+)
+    SETTINGS_RANGE = (tsf_settings.BASE, tsf_settings.END)
 
 
 class Firmware:
@@ -227,6 +231,9 @@ def upload(port, radio, progress=None):
     LOG.info("uploading to %s (%s, ident %s)", port, cls.MODEL, ident.hex())
     # a driver object for the radio's own firmware (its ident check), holding this image
     writer = radio if type(radio) is cls else cls(radio.get_mmap())
+    if cls is SuperFirmwareRadio and tsf_settings.present(writer):
+        # the firmware's own settings too; an image without them leaves the radio's alone
+        writer._ranges = sorted(cls._ranges + [cls.SETTINGS_RANGE])
     with _open(port, cls.BAUD_RATE) as pipe:
         writer.pipe = pipe
         writer.status_fn = _status_cb(progress, "Writing to radio")

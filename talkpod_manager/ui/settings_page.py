@@ -6,6 +6,7 @@ from gi.repository import Adw, GObject, Gtk
 
 from .. import features
 from .. import radio as rio
+from .. import tsf_settings
 from . import settingrows
 
 LOG = logging.getLogger(__name__)
@@ -38,6 +39,8 @@ class SettingsPage(Gtk.Box):
             row.add_prefix(Gtk.Image(icon_name="dialog-information-symbolic"))
             g.add(row)
             self.page.add(g)
+        if features.own_settings(firmware) or (firmware is None and tsf_settings.present(radio)):
+            settingrows.add_group(self.page, tsf_settings.group(radio), self._changed)
         self.settings = radio.get_settings()
         hidden = rio.missing_settings(radio)
         for i, group in enumerate(self.settings):
@@ -50,7 +53,10 @@ class SettingsPage(Gtk.Box):
         warning = setting.get_warning(setting.value) if hasattr(setting, "get_warning") else None
         if warning:
             LOG.info("setting %s warning: %s", setting.get_name(), warning)
-        rio.apply_setting(self.radio, setting)
+        if tsf_settings.owns(setting):
+            tsf_settings.apply(self.radio, setting)
+        else:
+            rio.apply_setting(self.radio, setting)
         self.emit("changed")
 
     def value(self, name):
