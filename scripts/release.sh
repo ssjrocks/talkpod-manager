@@ -18,7 +18,10 @@ fi
 .venv/bin/python -m pytest -q
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-.venv/bin/python -m pip wheel -q --no-deps -w "$tmp" .
+# from the committed files only: setuptools' build/ keeps files that were deleted from the source
+mkdir "$tmp/src"
+git archive HEAD | tar -x -C "$tmp/src"
+.venv/bin/python -m pip wheel -q --no-deps -w "$tmp" "$tmp/src"
 wheel=$(cd "$tmp" && ls talkpod_manager-"$version"-*.whl)
 sha=$(sha256sum "$tmp/$wheel" | cut -d' ' -f1)
 printf '{"version": "%s", "wheel": "%s", "sha256": "%s"}\n' "$version" "$wheel" "$sha" > "$tmp/talkpod-manager.json"
