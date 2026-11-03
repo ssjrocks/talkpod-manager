@@ -6,7 +6,8 @@ Usage: tools/screenshot.py IMAGE.img OUT_DIR [PICTURE [ANIMATION [SUPER_VERSION]
        the pages as they are for a radio running that Talkpod Super Firmware)
 Run it on a virtual X display to keep windows off the desktop:
   GDK_BACKEND=x11 xvfb-run -s "-screen 0 1400x1000x24" tools/screenshot.py ...
-State and backups go to a temporary folder; nothing touches a radio.
+State and backups go to a temporary folder; nothing touches a radio. tools/screenshots.sh runs it for the
+README, with the pictures in tools/screenshot-data.
 """
 
 import faulthandler
