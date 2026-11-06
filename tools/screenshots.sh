@@ -12,7 +12,7 @@ GDK_BACKEND=x11 xvfb-run -a -s "-screen 0 1400x1800x24" .venv/bin/python tools/s
     tests/data/a36se-fw126-uhf-cb.img "$out" tools/screenshot-data/logo.png tools/screenshot-data/splash.gif "$version" \
     | grep -v "^saved" || true
 for pair in "1-channels channels" "2-edit-channel edit-channel" "3-settings settings" "4-logo boot-logo" \
-            "4-splash boot-splash" "5-plan channel-plan" "7-firmware flash-firmware"; do
+            "4-splash boot-splash" "5-plan channel-plan" "7-firmware flash-firmware" "8-eventlog event-log"; do
     set -- $pair
     cp "$out/$1.png" "docs/screenshots/$2.png"
 done

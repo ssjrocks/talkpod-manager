@@ -28,13 +28,16 @@ and **A36plus** handheld radios over the K-plug programming cable.
   [Talkpod Super Firmware](https://github.com/ssjrocks/talkpod-super-firmware) and VR2TE's "Super"
   builds of Talkpod's firmware, each downloaded from its author's GitHub and checked before it's
   sent. Any `.kdhx` file works too, and there are links to Talkpod's own firmware downloads.
+- **Event log** (Talkpod Super Firmware 1.22+): reads the radio's log of its last 128 receiver events
+  (squelch, carriers, what muted the audio and why, data packets, transmissions) and explains each one
+  on hover. For when the radio does something odd.
 - **Backups**: automatic ones before and after every write, plus manual saves, in
   `~/Documents/Talkpod Manager/Backups`. Images are CHIRP `.img` files, so CHIRP opens them too.
 - **CSV import/export** in CHIRP's CSV format (works with CHIRP and RepeaterBook exports).
 
-| Settings, with hover help | Channel editor | Boot logo | Boot splash | Channel plan | Flash firmware |
-|---|---|---|---|---|---|
-| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/boot-splash.png) | ![](docs/screenshots/channel-plan.png) | ![](docs/screenshots/flash-firmware.png) |
+| Settings, with hover help | Channel editor | Boot logo | Boot splash | Channel plan | Flash firmware | Event log |
+|---|---|---|---|---|---|---|
+| ![](docs/screenshots/settings.png) | ![](docs/screenshots/edit-channel.png) | ![](docs/screenshots/boot-logo.png) | ![](docs/screenshots/boot-splash.png) | ![](docs/screenshots/channel-plan.png) | ![](docs/screenshots/flash-firmware.png) | ![](docs/screenshots/event-log.png) |
 
 ## Supported radios
 
@@ -113,6 +116,14 @@ radio**. The radio must be switched on with the cable in; it doesn't need to be 
 The splash format and the firmware's serial commands are described in
 [talkpod_manager/splash.py](talkpod_manager/splash.py).
 
+### Event log (Talkpod Super Firmware 1.22+)
+
+The radio keeps its last 128 receiver events in memory. After it does something odd (no sound with
+a signal there, a channel that stays quiet), plug in the cable **without switching the radio off**,
+open **Event log…** from the main menu and press the read button. Newest events are at the top;
+hover over one for what it means. Switching the radio off clears the log. The copy button puts the
+log on the clipboard as text, to send with a problem report.
+
 ### Cable trouble
 
 - The cables Talkpod ships use a CH340 or Prolific PL2303 USB chip; Linux drives both without
@@ -127,12 +138,12 @@ The splash format and the firmware's serial commands are described in
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release; 1.21 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.22 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
 - **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
-  against the SHA-256 GitHub publishes with it. A copy of 1.21 comes with the app for use offline.
+  against the SHA-256 GitHub publishes with it. A copy of 1.22 comes with the app for use offline.
 - **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
   pinned in the app. A changed file is refused.
 - **Your own file:** "A firmware file" takes any `.kdhx`.

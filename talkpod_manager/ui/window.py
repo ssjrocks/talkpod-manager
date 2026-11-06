@@ -12,6 +12,7 @@ from . import worker
 from .backups_page import BackupsPage
 from .channel_dialog import ChannelDialog
 from .channels_page import ChannelsPage
+from .eventlog_dialog import EventLogDialog
 from .firmware_dialog import FirmwareDialog
 from .logo_page import LogoPage
 from .plan_dialog import PlanDialog
@@ -147,6 +148,7 @@ class MainWindow(Adw.ApplicationWindow):
         tools = Gio.Menu()
         tools.append("Channel plan…", "win.plan")
         tools.append("Flash firmware…", "win.firmware")
+        tools.append("Event log…", "win.eventlog")
         m.append_section(None, tools)
         help_ = Gio.Menu()
         help_.append("Check for updates", "win.check-updates")
@@ -160,7 +162,7 @@ class MainWindow(Adw.ApplicationWindow):
         for name, fn in [
             ("read", self.read), ("write", self.write), ("open", self.open_dialog), ("save-as", self.save_as),
             ("import-csv", self.import_csv), ("export-csv", self.export_csv), ("plan", self.plan),
-            ("firmware", self.flash_firmware),
+            ("firmware", self.flash_firmware), ("eventlog", self.event_log),
             ("check-updates", lambda: self.check_updates(manual=True)), ("report", self.report_problem),
         ]:
             a = Gio.SimpleAction(name=name)
@@ -374,6 +376,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def flash_firmware(self):
         FirmwareDialog(self).present(self)
+
+    def event_log(self, log=None):
+        EventLogDialog(self, log).present(self)
 
     def send_splash(self):
         s = self.splash_page.splash

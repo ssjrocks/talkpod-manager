@@ -10,6 +10,7 @@ State and backups go to a temporary folder; nothing touches a radio. tools/scree
 README, with the pictures in tools/screenshot-data.
 """
 
+import datetime
 import faulthandler
 import os
 import shutil
@@ -57,6 +58,13 @@ def as_super(win, version):
     win.set_radio(win.radio, f"Read from the radio ({fw.name})", firmware=fw)
 
 
+def sample_log():
+    """The event log in tools/screenshot-data (a made-up session on a busy repeater), as read at 18:30."""
+    from talkpod_manager import eventlog
+    now, events = eventlog.parse(open(Path(__file__).parent / "screenshot-data" / "eventlog.txt").read().splitlines())
+    return now, datetime.datetime(2026, 11, 6, 18, 30).timestamp(), events
+
+
 class ShotApp(App):
     def __init__(self):
         super().__init__()
@@ -97,6 +105,9 @@ class ShotApp(App):
             lambda: capture(win, "6-backups"),
             lambda: win.flash_firmware(),
             lambda: capture(win, "7-firmware"),
+            lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
+            lambda: win.event_log(sample_log()),
+            lambda: capture(win, "8-eventlog"),
             lambda: win.get_visible_dialog() and win.get_visible_dialog().close(),
             lambda: self.quit(),
         ]
