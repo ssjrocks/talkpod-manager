@@ -29,8 +29,8 @@ and **A36plus** handheld radios over the K-plug programming cable.
   builds of Talkpod's firmware, each downloaded from its author's GitHub and checked before it's
   sent. Any `.kdhx` file works too, and there are links to Talkpod's own firmware downloads.
 - **Event log** (Talkpod Super Firmware 1.22+): reads the radio's log of its last 128 receiver events
-  (squelch, carriers, what muted the audio and why, data packets, transmissions) and explains each one
-  on hover. For when the radio does something odd.
+  (squelch, carriers, what muted the audio and why, data packets, transmissions), keeps every reading,
+  and explains each line on hover. For when the radio does something odd.
 - **Backups**: automatic ones before and after every write, plus manual saves, in
   `~/Documents/Talkpod Manager/Backups`. Images are CHIRP `.img` files, so CHIRP opens them too.
 - **CSV import/export** in CHIRP's CSV format (works with CHIRP and RepeaterBook exports).
@@ -120,9 +120,13 @@ The splash format and the firmware's serial commands are described in
 
 The radio keeps its last 128 receiver events in memory. After it does something odd (no sound with
 a signal there, a channel that stays quiet), plug in the cable **without switching the radio off**,
-open **Event log…** from the main menu and press the read button. Newest events are at the top;
-hover over one for what it means. Switching the radio off clears the log. The copy button puts the
-log on the clipboard as text, to send with a problem report.
+open **Event log…** from the main menu and press the read button. Switching the radio off clears its
+log.
+
+Every reading is kept (in `~/.local/state/talkpod-manager/event-logs.json`) and shown in one text
+field, oldest first: a header with when it was read, then each event with the date and time it
+happened, in this computer's time zone. Hover over a line for what it means. The buttons copy all
+of it as text (to send with a problem report), clear the radio's log, and delete the saved ones.
 
 ### Cable trouble
 

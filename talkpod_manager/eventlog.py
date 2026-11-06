@@ -4,12 +4,18 @@ The radio keeps its last 128 receiver events in RAM. Plugging in the cable doesn
 a problem the log of what led to it is still there; switching off clears it. The shell command `L`
 answers `EVLOG NOW COUNT`, one `MS NAME A V` line per event (oldest first, all hex), then `END`.
 The firmware repository's docs/serial-interface.md has the format.
+
+Every log read is kept as a report in the app's state folder (event-logs.json), so earlier ones can be
+looked at again in later runs.
 """
 
+import datetime as dt
+import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from . import paths
 from . import radio as rio
 from .splash import Shell
 from .updater import parse_version
@@ -17,6 +23,7 @@ from .updater import parse_version
 LOG = logging.getLogger(__name__)
 
 FIRST_VERSION = (1, 22)
+MAX_REPORTS = 200
 MODULATION = {0: "FM", 1: "AM", 2: "SSB"}
 HOLDS = [(1, "a sound playing"), (2, "data arriving"), (4, "a squelch tail")]
 IRQ_FLAGS = [(0x0002, "FSK sync word"), (0x0400, "squelch-tail tone"), (0x2000, "packet complete")]
@@ -99,6 +106,73 @@ class Event:
         return DESCRIPTIONS.get(self.name, "An event this version of Talkpod Manager doesn't know.")
 
 
+@dataclass
+class Report:
+    """One reading of the radio's log."""
+    read_at: float          # PC time, seconds since the epoch
+    now: int                # the radio's milliseconds at reading
+    version: str            # its firmware
+    events: list = field(default_factory=list)
+
+    def time_of(self, event):
+        """When the event happened, in this PC's time zone."""
+        return dt.datetime.fromtimestamp(self.read_at - (self.now - event.ms) / 1000)
+
+    def header(self):
+        at = dt.datetime.fromtimestamp(self.read_at).astimezone()
+        return (f"Read {at:%Y-%m-%d %H:%M:%S %Z} from Talkpod Super Firmware {self.version}: "
+                f"{len(self.events)} event{'s' * (len(self.events) != 1)}")
+
+    def lines(self):
+        """[(text, what it means)]: the header, then the events oldest first."""
+        out = [(self.header(), "When this log was read from the radio. The times below are when each event "
+                               "happened, in this computer's time zone.")]
+        if not self.events:
+            out.append(("(the log was empty)", "The radio had no events: it was just switched on, or the "
+                                                "log was cleared."))
+        for e in self.events:
+            out.append((f"{self.time_of(e):%Y-%m-%d %H:%M:%S}  {e.summary()}", e.description()))
+        return out
+
+    def to_dict(self):
+        return {"read_at": self.read_at, "now": self.now, "version": self.version,
+                "events": [[e.ms, e.name, e.a, e.v] for e in self.events]}
+
+    @classmethod
+    def from_dict(cls, d):
+        return cls(float(d["read_at"]), int(d["now"]), str(d["version"]),
+                   [Event(int(ms), str(name), int(a), int(v)) for ms, name, a, v in d["events"]])
+
+
+def saved_path():
+    return paths.state_dir() / "event-logs.json"
+
+
+def load():
+    """The reports read so far, oldest first."""
+    try:
+        return [Report.from_dict(d) for d in json.loads(saved_path().read_text())]
+    except FileNotFoundError:
+        return []
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        LOG.warning("saved event logs unreadable: %r", e)
+        return []
+
+
+def save(reports):
+    path = saved_path()
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps([r.to_dict() for r in reports[-MAX_REPORTS:]]))
+    tmp.replace(path)
+
+
+def keep(report):
+    """Adds a report to the saved ones; returns them all."""
+    reports = load() + [report]
+    save(reports)
+    return reports[-MAX_REPORTS:]
+
+
 def parse(lines):
     """(radio's milliseconds at reading, [Event] oldest first) from the reply to `L`."""
     now, events, started = None, [], False
@@ -134,9 +208,9 @@ def _version(sh):
 
 
 def read(port, opener=None):
-    """(radio's milliseconds at reading, PC time at reading, [Event]); the radio keeps its log."""
+    """A Report of the radio's log; the radio keeps it."""
     with Shell(port, opener) as sh:
-        _version(sh)
+        version = _version(sh)
         sh.s.reset_input_buffer()
         sh.s.write(b"L\r")
         t0, buf, lines = time.monotonic(), b"", []
@@ -150,7 +224,7 @@ def read(port, opener=None):
         read_at = time.time()
     now, events = parse(lines)
     LOG.info("event log: %d events read from %s", len(events), port)
-    return now, read_at, events
+    return Report(read_at, now, version, events)
 
 
 def clear(port, opener=None):

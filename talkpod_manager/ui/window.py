@@ -377,8 +377,8 @@ class MainWindow(Adw.ApplicationWindow):
     def flash_firmware(self):
         FirmwareDialog(self).present(self)
 
-    def event_log(self, log=None):
-        EventLogDialog(self, log).present(self)
+    def event_log(self, report=None):
+        EventLogDialog(self, report).present(self)
 
     def send_splash(self):
         s = self.splash_page.splash

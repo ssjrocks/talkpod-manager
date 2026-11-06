@@ -62,7 +62,7 @@ def sample_log():
     """The event log in tools/screenshot-data (a made-up session on a busy repeater), as read at 18:30."""
     from talkpod_manager import eventlog
     now, events = eventlog.parse(open(Path(__file__).parent / "screenshot-data" / "eventlog.txt").read().splitlines())
-    return now, datetime.datetime(2026, 11, 6, 18, 30).timestamp(), events
+    return eventlog.Report(datetime.datetime(2026, 11, 6, 18, 30).timestamp(), now, "1.22", events)
 
 
 class ShotApp(App):

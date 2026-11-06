@@ -1,9 +1,9 @@
-"""Event log: Talkpod Super Firmware's receiver events (eventlog.py), newest first, each explained on hover."""
+"""Event log: every reading of Talkpod Super Firmware's receiver event log (eventlog.py), kept across runs,
+in one text field with what each line means on hover."""
 
-import datetime as dt
 import logging
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, GLib, Gtk, Pango
 
 from .. import appreports, eventlog
 from .. import radio as rio
@@ -11,114 +11,126 @@ from . import worker
 
 LOG = logging.getLogger(__name__)
 
-INTRO = ("The radio's last 128 receiver events, newest first. Read it right after something odd happens, without "
-         "switching the radio off: that clears it. Hover over an event for what it means. Needs Talkpod Super "
-         "Firmware 1.22 or later and the programming cable.")
-
-
-def _icon(event):
-    """An icon for the events that explain a silence, none for the rest."""
-    if event.name == "HOLD":
-        return "audio-volume-muted-symbolic" if event.a else "audio-volume-high-symbolic"
-    if event.name in ("PKT_LOST", "CARRIER") and (event.name == "PKT_LOST" or event.a):
-        return "dialog-warning-symbolic"
-    if event.name == "TX":
-        return "microphone-sensitivity-high-symbolic"
-    return None
-
-
-def _ago(ms):
-    s = ms / 1000
-    if s < 60:
-        return f"{s:.1f} s before reading"
-    return f"{int(s // 60)} min {int(s % 60)} s before reading"
+INTRO = ("Each reading of the radio's receiver event log, oldest first, with when it was read and when each event "
+         "happened, in this computer's time zone. Read it right after something odd happens, without switching "
+         "the radio off: that clears it. Hover over a line for what it means. Needs Talkpod Super Firmware 1.22 "
+         "or later and the programming cable.")
+EMPTY = "No event logs read yet. Plug in the cable with the radio still on, then press the read button (top left)."
 
 
 class EventLogDialog(Adw.Dialog):
-    def __init__(self, window, log=None):
-        """log: (radio ms, PC time, events) to show, as eventlog.read() returns it; None to read it."""
-        super().__init__(title="Event log", content_width=720, content_height=780)
+    def __init__(self, window, report=None):
+        """report: a reading to add first (eventlog.Report), as if just read from the radio."""
+        super().__init__(title="Event log", content_width=860, content_height=800)
         self.win = window
-        self.log = None
         self.busy = False
+        self.tips = []                  # what each line of the text means, or None
 
         header = Adw.HeaderBar()
         self.read_btn = Gtk.Button(icon_name="view-refresh-symbolic", tooltip_text="Read the log from the radio")
         self.read_btn.connect("clicked", lambda _b: self._read())
         header.pack_start(self.read_btn)
+        self.delete_btn = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text="Delete the saved logs")
+        self.delete_btn.connect("clicked", lambda _b: self._confirm_delete())
+        header.pack_end(self.delete_btn)
         self.clear_btn = Gtk.Button(icon_name="edit-clear-all-symbolic", tooltip_text="Clear the log on the radio")
         self.clear_btn.connect("clicked", lambda _b: self._confirm_clear())
         header.pack_end(self.clear_btn)
-        self.copy_btn = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text="Copy the log as text")
+        self.copy_btn = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text="Copy all the logs as text")
         self.copy_btn.connect("clicked", lambda _b: self._copy())
         header.pack_end(self.copy_btn)
 
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12,
+                      margin_start=12, margin_end=12)
+        intro = Gtk.Label(label=INTRO, wrap=True, xalign=0)
+        intro.add_css_class("dim-label")
+        box.append(intro)
+        self.view = Gtk.TextView(editable=False, cursor_visible=False, monospace=True, has_tooltip=True,
+                                 wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=8, bottom_margin=8, left_margin=8,
+                                 right_margin=8)
+        self.view.connect("query-tooltip", self._tooltip)
+        self.bold = self.view.get_buffer().create_tag("header", weight=Pango.Weight.BOLD)
+        scroll = Gtk.ScrolledWindow(vexpand=True, child=self.view)
+        scroll.add_css_class("card")
+        self.scroll = scroll
+        box.append(scroll)
+
         view = Adw.ToolbarView()
         view.add_top_bar(header)
-        self.page = Adw.PreferencesPage()
-        view.set_content(self.page)
+        view.set_content(box)
         self.set_child(view)
-        self.page.add(Adw.PreferencesGroup(description=INTRO))
-        self.group = None
-        self._show(log)
+        self.reports = eventlog.keep(report) if report else eventlog.load()
+        self._render()
 
     # --- showing ---------------------------------------------------------------------------------
 
-    def _show(self, log):
-        self.log = log
-        if self.group is not None:
-            self.page.remove(self.group)
-        self.group = Adw.PreferencesGroup()
-        if log is None:
-            row = Adw.ActionRow(title="Not read yet", subtitle="Plug in the cable with the radio still on, then Read.")
-            read = Gtk.Button(label="Read", valign=Gtk.Align.CENTER)
-            read.add_css_class("suggested-action")
-            read.connect("clicked", lambda _b: self._read())
-            row.add_suffix(read)
-            self.group.add(row)
-        else:
-            now, read_at, events = log
-            if not events:
-                self.group.set_title("The log is empty")
-            else:
-                first = dt.datetime.fromtimestamp(read_at - (now - events[0].ms) / 1000)
-                self.group.set_title(f"{len(events)} events since {first:%H:%M:%S}, read at "
-                                     f"{dt.datetime.fromtimestamp(read_at):%H:%M:%S}")
-            for e in reversed(events):
-                at = dt.datetime.fromtimestamp(read_at - (now - e.ms) / 1000)
-                row = Adw.ActionRow(title=e.summary(), subtitle=f"{at:%H:%M:%S}, {_ago(now - e.ms)}",
-                                    tooltip_text=e.description(), activatable=False)
-                icon = _icon(e)
-                if icon:
-                    row.add_prefix(Gtk.Image(icon_name=icon))
-                self.group.add(row)
-        self.page.add(self.group)
+    def _render(self):
+        buf = self.view.get_buffer()
+        buf.set_text("")
+        self.tips = []
+        if not self.reports:
+            buf.set_text(EMPTY)
+            self.tips = [None]
+        for n, report in enumerate(self.reports):
+            if n:
+                buf.insert(buf.get_end_iter(), "\n")
+                self.tips.append(None)
+            for i, (text, tip) in enumerate(report.lines()):
+                if n or i:
+                    buf.insert(buf.get_end_iter(), "\n")
+                if i == 0:
+                    buf.insert_with_tags(buf.get_end_iter(), text, self.bold)
+                else:
+                    buf.insert(buf.get_end_iter(), text)
+                self.tips.append(tip)
+        GLib.idle_add(self._scroll_to_end)
         self._update()
+
+    def _scroll_to_end(self):
+        adj = self.scroll.get_vadjustment()
+        adj.set_value(adj.get_upper() - adj.get_page_size())
+        return False
+
+    def _tooltip(self, view, x, y, keyboard, tooltip):
+        if keyboard:
+            return False
+        bx, by = view.window_to_buffer_coords(Gtk.TextWindowType.WIDGET, x, y)
+        found, it = view.get_iter_at_location(bx, by)
+        line = it.get_line() if found else -1
+        tip = self.tips[line] if 0 <= line < len(self.tips) else None
+        if not tip:
+            return False
+        tooltip.set_text(tip)
+        return True
 
     def _update(self):
         idle = not self.busy and not self.win.busy
         self.read_btn.set_sensitive(idle)
-        self.clear_btn.set_sensitive(idle and bool(self.log and self.log[2]))
-        self.copy_btn.set_sensitive(bool(self.log and self.log[2]))
+        self.clear_btn.set_sensitive(idle)
+        self.copy_btn.set_sensitive(bool(self.reports))
+        self.delete_btn.set_sensitive(bool(self.reports))
 
     def text(self):
-        """The log as plain text, newest last, as the radio sent it."""
-        now, read_at, events = self.log
-        out = []
-        for e in events:
-            at = dt.datetime.fromtimestamp(read_at - (now - e.ms) / 1000)
-            out.append(f"{at:%H:%M:%S.%f}"[:12] + f"  {e.summary()}")
-        return "\n".join(out) + "\n"
+        """All the saved logs as plain text."""
+        return "\n\n".join("\n".join(text for text, _tip in r.lines()) for r in self.reports) + "\n"
 
     def _copy(self):
         self.get_clipboard().set(self.text())
-        self.win.toast("Event log copied")
+        self.win.toast("Event logs copied")
 
-    # --- the radio -------------------------------------------------------------------------------
+    # --- the radio and the saved logs ------------------------------------------------------------
 
     def _alert(self, heading, body):
         d = Adw.AlertDialog(heading=heading, body=body)
         d.add_response("ok", "OK")
+        d.present(self)
+
+    def _confirm(self, heading, body, action, fn):
+        d = Adw.AlertDialog(heading=heading, body=body)
+        d.add_response("cancel", "Cancel")
+        d.add_response("go", action)
+        d.set_response_appearance("go", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.connect("response", lambda _d, r: fn() if r == "go" else None)
         d.present(self)
 
     def _run(self, job, done, what):
@@ -139,17 +151,32 @@ class EventLogDialog(Adw.Dialog):
         self._update()
 
     def _read(self):
-        self._run(eventlog.read, self._show, "Reading the event log")
+        def job(port):
+            report = eventlog.read(port)
+            return report, eventlog.keep(report)
+
+        self._run(job, self._read_done, "Reading the event log")
+
+    def _read_done(self, result):
+        report, self.reports = result
+        self._render()
+        self.win.toast(f"Event log read: {len(report.events)} events")
 
     def _confirm_clear(self):
-        d = Adw.AlertDialog(heading="Clear the radio's event log?",
-                            body="The radio starts a new log. What it has now is gone, unless you copied it.")
-        d.add_response("cancel", "Cancel")
-        d.add_response("clear", "Clear")
-        d.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE)
-        d.connect("response", lambda _d, r: self._run(eventlog.clear, lambda _r: self._show(None), "Clearing the "
-                                                      "event log") if r == "clear" else None)
-        d.present(self)
+        self._confirm("Clear the radio's event log?",
+                      "The radio starts a new log. The logs saved here stay.", "Clear",
+                      lambda: self._run(eventlog.clear, lambda _r: self.win.toast("The radio's event log is cleared"),
+                                        "Clearing the event log"))
+
+    def _confirm_delete(self):
+        def delete():
+            eventlog.save([])
+            self.reports = []
+            self._render()
+
+        self._confirm("Delete the saved event logs?",
+                      f"All {len(self.reports)} logs read so far are deleted from this computer. The radio's own "
+                      "log isn't touched.", "Delete", delete)
 
     def _failed(self, e):
         self.busy = False

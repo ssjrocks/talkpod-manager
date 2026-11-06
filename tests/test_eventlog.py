@@ -1,4 +1,7 @@
-"""The receiver event log: parsing the firmware's dump, explaining it, reading it over the shell."""
+"""The receiver event log: parsing the firmware's dump, explaining it, reading it over the shell, keeping it."""
+
+import datetime as dt
+import time
 
 import pytest
 
@@ -101,8 +104,57 @@ class FakeRadio:
 
 def test_read_over_the_shell():
     fake = FakeRadio()
-    now, read_at, events = eventlog.read("/dev/fake", opener=lambda *a, **k: fake)
-    assert now == 0xE10 and len(events) == 10 and read_at > 0
+    report = eventlog.read("/dev/fake", opener=lambda *a, **k: fake)
+    assert report.now == 0xE10 and len(report.events) == 10 and report.version == "1.22"
+    assert abs(report.read_at - time.time()) < 60
+
+
+@pytest.fixture
+def brisbane(monkeypatch):
+    monkeypatch.setenv("TZ", "Australia/Brisbane")
+    time.tzset()
+    yield
+    monkeypatch.undo()
+    time.tzset()
+
+
+def test_lines_have_local_timestamps(brisbane):
+    now, events = eventlog.parse(DUMP)
+    read_at = dt.datetime(2026, 11, 6, 8, 30, tzinfo=dt.timezone.utc).timestamp()     # 18:30 in Brisbane
+    lines = eventlog.Report(read_at, now, "1.22", events).lines()
+    assert lines[0][0] == "Read 2026-11-06 18:30:00 AEST from Talkpod Super Firmware 1.22: 10 events"
+    # OPEN at 0x25F ms, read at 0xE10: 3.0 s earlier
+    assert lines[6][0] == "2026-11-06 18:29:57  Squelch opened on 476.67500 MHz, -71 dBm"
+    assert all(tip for _text, tip in lines)
+
+
+@pytest.fixture
+def state(tmp_path, monkeypatch):
+    monkeypatch.setattr(eventlog.paths, "state_dir", lambda: tmp_path)
+    return tmp_path
+
+
+def test_reports_are_kept_across_runs(state):
+    now, events = eventlog.parse(DUMP)
+    first = eventlog.Report(1000.0, now, "1.22", events)
+    assert eventlog.load() == []
+    assert eventlog.keep(first) == [first]
+    second = eventlog.Report(2000.0, 5, "1.22", [])
+    assert eventlog.keep(second) == [first, second]
+    assert eventlog.load() == [first, second]           # what a new run of the app reads
+    assert second.lines()[1][0] == "(the log was empty)"
+
+
+def test_only_the_newest_reports_are_kept(state, monkeypatch):
+    monkeypatch.setattr(eventlog, "MAX_REPORTS", 3)
+    for i in range(5):
+        eventlog.keep(eventlog.Report(float(i), 0, "1.22", []))
+    assert [r.read_at for r in eventlog.load()] == [2.0, 3.0, 4.0]
+
+
+def test_a_damaged_file_is_ignored(state):
+    eventlog.saved_path().write_text("{not json")
+    assert eventlog.load() == []
 
 
 def test_clear():
