@@ -2,7 +2,8 @@
 
 The radio keeps its last 128 receiver events in RAM. Plugging in the cable doesn't restart it, so after
 a problem the log of what led to it is still there; switching off clears it. The shell command `L`
-answers `EVLOG NOW COUNT`, one `MS NAME A V` line per event (oldest first, all hex), then `END`.
+answers `EVLOG NOW COUNT`, one `MS NAME A V [W]` line per event (oldest first, all hex; W, the receiver's
+readings, from firmware 1.23 on some events), then `END`.
 The firmware repository's docs/serial-interface.md has the format.
 
 Every log read is kept as a report in the app's state folder (event-logs.json), so earlier ones can be
@@ -35,10 +36,16 @@ DESCRIPTIONS = {
     "TUNE": "The receiver moved to this frequency: a channel change, a typed frequency, a scan step. Dual "
             "watch's two frequencies are logged once, not at every switch, and a scan at most every 0.3 s.",
     "OPEN": "The squelch opened: a signal is there (with the channel's tone, if it has one), and its audio "
-            "goes to the speaker unless a mute below holds it. The strength is the signal when it opened.",
-    "CLOSE": "The squelch closed: the signal went, or its tone did.",
+            "goes to the speaker unless a mute holds it. The strength is the signal when it opened; the noise "
+            "reading (firmware 1.23+) is lower the cleaner the signal: 10-32 strong, 70-80 none in narrow FM.",
+    "CLOSE": "The squelch closed: the signal went, or its tone did. The readings are from that moment.",
     "CARRIER": "A carrier came or went while the squelch stayed as it was. On a channel with CTCSS, DCS or "
                "ENCRY this is a signal without the channel's tone: its audio isn't played.",
+    "WEAK": "A signal the squelch kept out: the receiver's noise reading dropped well below its no-signal level "
+            "(70-80 in narrow FM, lower is a cleaner signal), but the squelch stayed closed. From firmware 1.23 "
+            "squelch level 1 opens at noise 64 in narrow FM (44 wide), and each level asks for less noise and "
+            "more signal; level 3 is about stock's level 1. If this shows noise under 64 at level 1, the glitch "
+            "count or the signal strength kept it out. Logged at most every 3 s.",
     "HOLD": "What mutes the received audio now, even with the squelch open: a sound playing (a beep or "
             "prompt), data arriving (a message or rolling-scramble burst, at most 3 s), or a squelch tail "
             "(Tail cut: until the carrier goes, at most 0.5 s since firmware 1.22). \"Nothing\": the audio "
@@ -65,6 +72,15 @@ class Event:
     name: str
     a: int
     v: int
+    w: int = 0              # receiver readings, firmware 1.23+: RSSI raw 8-0, glitch 23-16, noise 30-24
+
+    @property
+    def readings(self):
+        """'noise 41, glitch 3, -92 dBm' from w, or '' when the event has none"""
+        if not self.w:
+            return ""
+        rssi = (self.w & 0x1FF) / 2 - 160
+        return f"noise {self.w >> 24 & 0x7F}, glitch {self.w >> 16 & 0xFF}, {rssi:.0f} dBm"
 
     @property
     def mhz(self):
@@ -80,7 +96,10 @@ class Event:
             width = " narrow" if a >> 4 and mod == "FM" else " wide" if mod == "FM" else ""
             return f"Tuned to {self.mhz}, {mod}{width}"
         if n in ("OPEN", "CLOSE"):
-            return f"Squelch {'opened' if n == 'OPEN' else 'closed'} on {self.mhz}, {a - 160} dBm"
+            noise = f", noise {self.w >> 24 & 0x7F}" if self.w else ""
+            return f"Squelch {'opened' if n == 'OPEN' else 'closed'} on {self.mhz}, {a - 160} dBm{noise}"
+        if n == "WEAK":
+            return f"Signal kept out by the squelch on {self.mhz}: {self.readings}"
         if n == "CARRIER":
             return f"Carrier {'without the right tone' if a else 'gone'} on {self.mhz}"
         if n == "HOLD":
@@ -136,12 +155,13 @@ class Report:
 
     def to_dict(self):
         return {"read_at": self.read_at, "now": self.now, "version": self.version,
-                "events": [[e.ms, e.name, e.a, e.v] for e in self.events]}
+                "events": [[e.ms, e.name, e.a, e.v, e.w] for e in self.events]}
 
     @classmethod
     def from_dict(cls, d):
         return cls(float(d["read_at"]), int(d["now"]), str(d["version"]),
-                   [Event(int(ms), str(name), int(a), int(v)) for ms, name, a, v in d["events"]])
+                   [Event(int(e[0]), str(e[1]), int(e[2]), int(e[3]), int(e[4]) if len(e) > 4 else 0)
+                    for e in d["events"]])
 
 
 def saved_path():
@@ -184,9 +204,10 @@ def parse(lines):
             now, started = int(parts[1], 16), True
         elif parts[0] == "END":
             break
-        elif started and len(parts) == 4:
+        elif started and len(parts) in (4, 5):
             try:
-                events.append(Event(int(parts[0], 16), parts[1], int(parts[2], 16), int(parts[3], 16)))
+                events.append(Event(int(parts[0], 16), parts[1], int(parts[2], 16), int(parts[3], 16),
+                                    int(parts[4], 16) if len(parts) == 5 else 0))
             except ValueError:
                 LOG.info("event log: skipped %r", line)     # a log line of the radio's in between
     if now is None:

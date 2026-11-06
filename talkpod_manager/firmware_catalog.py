@@ -3,7 +3,7 @@
 No third-party firmware is copied into this app. A build is downloaded from its author's GitHub
 when it's chosen, and it must match a SHA-256 before it goes anywhere near a radio:
 - Talkpod Super Firmware: the newest release of ssjrocks/talkpod-super-firmware, checked against
-  the digest GitHub publishes with the release asset. A copy of 1.22 ships with the app for when
+  the digest GitHub publishes with the release asset. A copy of 1.23 ships with the app for when
   there is no internet (and is offered whenever GitHub only has older releases).
 - VR2TE's "Super" builds of Talkpod's firmware: files from a pinned commit of
   VR2TE/Talkpod-A36plus-Firmware, checked against checksums pinned here. Talkpod's own firmware
@@ -58,7 +58,7 @@ class Build:
 TSF = Build(
     key="tsf",
     title="Talkpod Super Firmware",
-    version="1.22",
+    version="1.23",
     page=TSF_PAGE,
     summary="New firmware with the stock settings: dual-watch interface, FM/AM and SSB receive, a frequency "
             "scanner, wide transmit range (108–138 and 406.0–406.1 MHz blocked), CTCSS/DCS, "
@@ -70,10 +70,10 @@ TSF = Build(
             "stock settings aren't tested on air yet.",
     after="The radio restarts with Talkpod Super Firmware. Read works as before, and the Splash page can now "
           "give it a boot animation.",
-    url=f"https://github.com/{TSF_REPO}/releases/download/v1.22/talkpod-super-firmware-v1.22.kdhx",
-    sha256="b59c97ff8112539f4f1f23241798a3b23152758c0534f6974eeddcc961d926b4",
-    filename="talkpod-super-firmware-v1.22.kdhx",
-    bundled="talkpod-super-firmware-v1.22.kdhx",
+    url=f"https://github.com/{TSF_REPO}/releases/download/v1.23/talkpod-super-firmware-v1.23.kdhx",
+    sha256="609b7177822ac864919a56fc7329356295a54a7f7d5aa701734c7241415ef0d5",
+    filename="talkpod-super-firmware-v1.23.kdhx",
+    bundled="talkpod-super-firmware-v1.23.kdhx",
 )
 
 _VR2TE_SUMMARY = ("VR2TE's research build of Talkpod's own firmware, with wider ranges: transmit 18–108, 136–350 and "

@@ -32,6 +32,7 @@ faulthandler.dump_traceback_later(120, exit=True)  # a hung run ends by itself
 from talkpod_manager import appreports, paths, radio as rio, updater  # noqa: E402
 
 appreports.init = lambda *a, **k: None  # test runs must not send error reports
+rio.find_ports = lambda: [rio.Port("/dev/ttyUSB0", "CH340 cable", True)]   # not this PC's own devices
 paths.backups_dir = lambda: (tmp / "backups").mkdir(exist_ok=True) or tmp / "backups"
 updater.due = lambda: False
 
@@ -62,7 +63,8 @@ def sample_log():
     """The event log in tools/screenshot-data (a made-up session on a busy repeater), as read at 18:30."""
     from talkpod_manager import eventlog
     now, events = eventlog.parse(open(Path(__file__).parent / "screenshot-data" / "eventlog.txt").read().splitlines())
-    return eventlog.Report(datetime.datetime(2026, 11, 6, 18, 30).timestamp(), now, "1.22", events)
+    from talkpod_manager.firmware_catalog import TSF
+    return eventlog.Report(datetime.datetime(2026, 11, 6, 18, 30).timestamp(), now, TSF.version, events)
 
 
 class ShotApp(App):

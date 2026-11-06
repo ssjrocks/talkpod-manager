@@ -45,6 +45,8 @@ def test_summaries_say_what_happened():
 
 @pytest.mark.parametrize("line, text", [
     ("1 CARRIER 0001 02D7592C", "Carrier without the right tone on 476.67500 MHz"),
+    ("1 WEAK 003C 02D7592C 3C220054", "Signal kept out by the squelch on 476.67500 MHz: noise 60, glitch 34, -118 dBm"),
+    ("1 OPEN 003C 02D7592C 14050078", "Squelch opened on 476.67500 MHz, -100 dBm, noise 20"),
     ("1 PKT 0064 02D7592C", "Data packet: message on 476.67500 MHz"),
     ("1 PKT 0007 02D7592C", "Data packet: type 7, noise on 476.67500 MHz"),
     ("1 PKT_LOST 0000 02D7592C", "Data packet started and never finished on 476.67500 MHz"),
@@ -150,6 +152,14 @@ def test_only_the_newest_reports_are_kept(state, monkeypatch):
     for i in range(5):
         eventlog.keep(eventlog.Report(float(i), 0, "1.22", []))
     assert [r.read_at for r in eventlog.load()] == [2.0, 3.0, 4.0]
+
+
+def test_reports_saved_by_0_5_1_still_load(state):
+    eventlog.saved_path().write_text('[{"read_at": 5.0, "now": 9, "version": "1.22", "events": [[1, "BOOT", 0, 0]]}]')
+    (report,) = eventlog.load()
+    assert report.events == [eventlog.Event(1, "BOOT", 0, 0)]
+    eventlog.keep(report)
+    assert eventlog.load()[-1].events[0].w == 0
 
 
 def test_a_damaged_file_is_ignored(state):
