@@ -132,6 +132,22 @@ def test_lines_have_local_timestamps(brisbane):
     assert all(tip for _text, tip in lines)
 
 
+class WindowsZone(dt.tzinfo):
+    def utcoffset(self, _):
+        return dt.timedelta(hours=10)
+
+    def dst(self, _):
+        return dt.timedelta(0)
+
+    def tzname(self, _):
+        return "E. Australia Standard Time"
+
+
+def test_long_zone_names_become_offsets():
+    assert eventlog.zone(dt.datetime(2026, 11, 6, 18, 30, tzinfo=WindowsZone())) == "UTC+10:00"
+    assert eventlog.zone(dt.datetime(2026, 11, 6, 8, 30, tzinfo=dt.timezone.utc)) == "UTC"
+
+
 @pytest.fixture
 def state(tmp_path, monkeypatch):
     monkeypatch.setattr(eventlog.paths, "state_dir", lambda: tmp_path)

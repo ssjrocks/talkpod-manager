@@ -125,6 +125,16 @@ class Event:
         return DESCRIPTIONS.get(self.name, "An event this version of Talkpod Manager doesn't know.")
 
 
+def zone(at):
+    """The time zone's short name, as AEST; Windows names zones in full ("E. Australia Standard Time"),
+    so there it's the UTC offset."""
+    name = at.strftime("%Z")
+    if len(name) <= 5:
+        return name
+    offset = at.strftime("%z")
+    return f"UTC{offset[:3]}:{offset[3:]}"
+
+
 @dataclass
 class Report:
     """One reading of the radio's log."""
@@ -139,7 +149,7 @@ class Report:
 
     def header(self):
         at = dt.datetime.fromtimestamp(self.read_at).astimezone()
-        return (f"Read {at:%Y-%m-%d %H:%M:%S %Z} from Talkpod Super Firmware {self.version}: "
+        return (f"Read {at:%Y-%m-%d %H:%M:%S} {zone(at)} from Talkpod Super Firmware {self.version}: "
                 f"{len(self.events)} event{'s' * (len(self.events) != 1)}")
 
     def lines(self):

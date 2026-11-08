@@ -13,7 +13,7 @@
 >   illegal, even if you never transmit. Check your local rules (for example ACMA in Australia, the FCC
 >   in the US, Ofcom in the UK) before flashing anything but the stock firmware.
 
-A desktop app for Ubuntu (GTK4 / libadwaita) to program, configure and back up **Talkpod A36SE**
+A desktop app for Ubuntu and Windows (GTK4 / libadwaita) to program, configure and back up **Talkpod A36SE**
 and **A36plus** handheld radios over the K-plug programming cable.
 
 ![Channel list](docs/screenshots/channels.png)
@@ -77,6 +77,8 @@ a library. The boot-logo protocol was worked out from Talkpod's Windows "Import 
 
 ## Install
 
+### Ubuntu
+
 Ubuntu 24.04 or newer (needs GTK 4 and libadwaita 1.5+):
 
 ```bash
@@ -89,6 +91,20 @@ a Python venv under `~/.local/share/talkpod-manager`, and adds it to the app gri
 
 To use the cable your user must be in the `dialout` group:
 `sudo usermod -aG dialout $USER`, then log out and back in.
+
+### Windows
+
+Windows 10 or 11, 64-bit: download `TalkpodManager-<version>-setup.exe` from the
+[latest release](https://github.com/ssjrocks/talkpod-manager/releases/latest) and run it. It installs
+for your user only, with no administrator rights, and adds Talkpod Manager to the Start menu.
+**Settings → Apps** removes it; your backups in `Documents\Talkpod Manager` stay.
+
+The setup program isn't code-signed, so Windows SmartScreen may say it protected your PC: choose
+**More info**, then **Run anyway**.
+
+The cable shows up as a COM port. Windows installs the CH340 cable's driver by itself the first time
+it's plugged in (it can take a minute). If the app doesn't list the cable, look under
+**Device Manager → Ports (COM & LPT)**.
 
 ## Using it
 
@@ -147,7 +163,9 @@ of it as text (to send with a problem report), clear the radio's log, and delete
 ### Cable trouble
 
 - The cables Talkpod ships use a CH340 or Prolific PL2303 USB chip; Linux drives both without
-  extra software. The app lists the cable by chip name in the header.
+  extra software, and Windows fetches the CH340's driver itself. The app lists the cable by chip name
+  in the header.
+- Windows: "COM3 is in use by another program": close CHIRP or any other radio software first.
 - "The radio didn't answer": the plug isn't fully in (it needs a firm push through the rubber
   cover), the radio is off, or the volume is at zero.
 
@@ -201,7 +219,8 @@ Before flashing anything:
 
 - **Updates**: the app checks this repository's latest release at most every 12 hours and offers to
   install it. The download must come from github.com and match the SHA-256 published with the
-  release.
+  release. On Windows the update is the next setup program: the app downloads and checks it, and
+  when you restart it installs over the old version and opens the app again.
 - **Problem reports**: crashes, unexpected errors and the **Report a problem** menu item send a
   report to the developer's server (`ssjrocks.com`). A report contains: the app version, the error
   and its stack trace, the app's own log file (radio operations, no channel data), the PC's
@@ -222,8 +241,15 @@ tools/screenshots.sh                    # the README's screenshots, on a virtual
 `tools/screenshots.sh` renders `docs/screenshots` from the test image, as read from a radio with the
 bundled Super Firmware, with the sample logo, animation and event log in `tools/screenshot-data`.
 
+The Windows build is made on GitHub's Windows machines by
+[`.github/workflows/windows.yml`](.github/workflows/windows.yml): in MSYS2 UCRT64 it runs the tests,
+draws every page, freezes the app with PyInstaller and makes the setup program with Inno Setup
+([`packaging/windows`](packaging/windows)), then installs it and starts it. `packaging/windows/build.sh`
+does the build part in any MSYS2 UCRT64 shell.
+
 Releases: bump `__version__` in `talkpod_manager/__init__.py`, commit, then
-`scripts/release.sh NOTES.md`.
+`scripts/release.sh NOTES.md`. When the release is published, the Windows workflow adds the setup
+program to it and its name and SHA-256 to `talkpod-manager.json`.
 
 ## Licence
 
