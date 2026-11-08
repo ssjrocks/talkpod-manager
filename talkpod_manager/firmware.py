@@ -199,7 +199,7 @@ def flash(port, image, progress=None, manual=False):
 
 def main(argv=None):
     p = argparse.ArgumentParser(prog="talkpod-firmware",
-                                description="Check or flash Talkpod A36plus / A36SE firmware (.kdhx) on Linux.")
+                                description="Check or flash Talkpod A36plus / A36SE firmware (.kdhx).")
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("info", help="check a firmware file without touching the radio")
     i.add_argument("file")

@@ -1,9 +1,10 @@
 """Updates from the project's GitHub releases.
 
-Each release carries the wheel and talkpod-manager.json ({"version", "wheel", "sha256"}). The
-wheel must come from github.com, match the checksum, and is installed with pip into the venv the
-app runs from (the one scripts/install.sh made). Running from a source checkout, the app only
-reports that an update exists.
+Each release carries the wheel, the Windows setup program and talkpod-manager.json
+({"version", "wheel", "sha256", "windows": {"file", "sha256"}}). Each file must come from github.com
+and match its checksum. On Linux the wheel is installed with pip into the venv the app runs from (the
+one scripts/install.sh made). The Windows build downloads the setup program, which installs over it
+and starts the app again. Running from a source checkout, the app only reports that an update exists.
 """
 
 import hashlib
@@ -26,11 +27,14 @@ INFO_ASSET = "talkpod-manager.json"
 CHECK_EVERY = 12 * 3600
 
 
+WINDOWS = sys.platform == "win32"
+
+
 class Update:
-    def __init__(self, version, wheel_url, wheel_name, sha256, notes, published):
+    def __init__(self, version, url, name, sha256, notes, published):
         self.version = version
-        self.wheel_url = wheel_url
-        self.wheel_name = wheel_name
+        self.url = url                  # the wheel, or the Windows setup program
+        self.name = name
         self.sha256 = sha256
         self.notes = notes
         self.published = published
@@ -65,10 +69,15 @@ def check():
     info = json.loads(_get(info_asset["browser_download_url"]))
     if parse_version(info["version"]) <= parse_version(__version__):
         return None
-    wheel = assets.get(info["wheel"])
-    if not wheel or not _trusted(wheel["browser_download_url"]):
+    if WINDOWS:
+        # the setup program is added by the Windows build a few minutes after the release
+        name, sha = (info.get("windows") or {}).get("file"), (info.get("windows") or {}).get("sha256")
+    else:
+        name, sha = info["wheel"], info["sha256"]
+    asset = assets.get(name)
+    if not asset or not sha or not _trusted(asset["browser_download_url"]):
         return None
-    return Update(info["version"], wheel["browser_download_url"], info["wheel"], info["sha256"].lower(),
+    return Update(info["version"], asset["browser_download_url"], name, sha.lower(),
                   rel.get("body") or "", rel.get("published_at") or "")
 
 
@@ -93,14 +102,25 @@ def installed_in_venv():
     return sys.prefix != sys.base_prefix and (Path(sys.prefix) / "talkpod-manager-venv").exists()
 
 
+def installed_by_setup():
+    """True for the Windows build (it updates by running the next setup program)."""
+    return WINDOWS and bool(getattr(sys, "frozen", False))
+
+
+_setup = None                           # the downloaded setup program, run by restart()
+
+
 def install(update, progress=None):
-    """Download, verify and pip-install the update. Raises on any failure."""
-    if not installed_in_venv():
+    """Download and verify the update, and pip-install it (Linux). Raises on any failure.
+
+    On Windows the setup program can't replace the running app, so restart() runs it."""
+    global _setup
+    if not (installed_in_venv() or installed_by_setup()):
         raise RuntimeError(f"This copy runs from source; update it with git, or get {update.version} from {RELEASES_PAGE}")
     folder = paths.state_dir() / "updates"
     folder.mkdir(exist_ok=True)
-    path = folder / update.wheel_name
-    req = urllib.request.Request(update.wheel_url, headers={"User-Agent": f"talkpod-manager/{__version__}"})
+    path = folder / update.name
+    req = urllib.request.Request(update.url, headers={"User-Agent": f"talkpod-manager/{__version__}"})
     h = hashlib.sha256()
     with urllib.request.urlopen(req, timeout=60) as r, open(path, "wb") as f:
         total = int(r.headers.get("Content-Length") or 0)
@@ -114,6 +134,10 @@ def install(update, progress=None):
     if h.hexdigest() != update.sha256:
         path.unlink(missing_ok=True)
         raise RuntimeError("The download didn't match its checksum; nothing was installed.")
+    if installed_by_setup():
+        _setup = path
+        LOG.info("downloaded update %s", update.version)
+        return
     # Dependencies are resolved too, so a release that moves the CHIRP pin brings the new CHIRP along.
     out = subprocess.run([sys.executable, "-m", "pip", "install", str(path)], capture_output=True, text=True)
     if out.returncode != 0:
@@ -148,4 +172,10 @@ def sync_desktop_files():
 
 
 def restart():
+    if _setup:
+        # /UPDATE=1: the setup program starts the app again when it's done (packaging/windows/setup.iss)
+        subprocess.Popen([str(_setup), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/UPDATE=1"],
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                         close_fds=True)
+        os._exit(0)                     # the files must be free before it copies the new ones
     os.execv(sys.executable, [sys.executable, "-m", "talkpod_manager"] + sys.argv[1:])

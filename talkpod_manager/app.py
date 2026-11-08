@@ -2,6 +2,7 @@
 
 import logging
 import logging.handlers
+import os
 import sys
 from pathlib import Path
 
@@ -33,7 +34,10 @@ def setup_logging():
 
 class App(Adw.Application):
     def __init__(self):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_OPEN)
+        flags = Gio.ApplicationFlags.HANDLES_OPEN
+        if sys.platform == "win32":
+            flags |= Gio.ApplicationFlags.NON_UNIQUE    # one copy per window: Windows has no session bus to hand over on
+        super().__init__(application_id=APP_ID, flags=flags)
 
     def do_startup(self):
         Adw.Application.do_startup(self)
@@ -42,8 +46,9 @@ class App(Adw.Application):
         # The icon ships inside the package, so it shows even when running from a checkout.
         theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
         theme.add_search_path(str(Path(__file__).parent / "data" / "icons"))
-        appreports.init(APP_ID, APP_NAME, __version__, paths.state_dir(), log_file=paths.log_file(),
-                        version_code=version_code(__version__))
+        if not os.environ.get("TALKPOD_MANAGER_NO_REPORTS"):    # set by test runs of the built app
+            appreports.init(APP_ID, APP_NAME, __version__, paths.state_dir(), log_file=paths.log_file(),
+                            version_code=version_code(__version__))
         if updater.installed_in_venv():
             try:
                 updater.sync_desktop_files()

@@ -633,7 +633,11 @@ class MainWindow(Adw.ApplicationWindow):
         def done(_):
             self.set_busy(False)
             self.banner.set_revealed(False)
-            d = Adw.AlertDialog(heading=f"Updated to {u.version}", body="Restart the app to use the new version.")
+            if updater.installed_by_setup():
+                d = Adw.AlertDialog(heading=f"{u.version} is downloaded",
+                                    body="Restart the app to install it. It opens again when it's done.")
+            else:
+                d = Adw.AlertDialog(heading=f"Updated to {u.version}", body="Restart the app to use the new version.")
             d.add_response("later", "Later")
             d.add_response("restart", "Restart now")
             d.set_response_appearance("restart", Adw.ResponseAppearance.SUGGESTED)

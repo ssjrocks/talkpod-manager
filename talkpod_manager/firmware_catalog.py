@@ -66,8 +66,7 @@ TSF = Build(
             "boot splash. Read and Write keep working.",
     warning="It transmits across the chip's whole range except the blocked bands, so stay within your licence. "
             "The stock settings already on the radio take effect, so check Roger, the side keys, Menu exit and Battery "
-            "save afterwards. In this version the FM radio plays no sound, and the frequency scanner, SSB and most "
-            "stock settings aren't tested on air yet.",
+            "save afterwards.",
     after="The radio restarts with Talkpod Super Firmware. Read works as before, and the Splash page can now "
           "give it a boot animation.",
     url=f"https://github.com/{TSF_REPO}/releases/download/v1.26/talkpod-super-firmware-v1.26.kdhx",

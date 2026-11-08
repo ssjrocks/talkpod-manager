@@ -1,6 +1,7 @@
-"""Where the app keeps its files (XDG locations)."""
+"""Where the app keeps its files: XDG locations, or %LOCALAPPDATA% on Windows."""
 
 import os
+import sys
 from pathlib import Path
 
 
@@ -11,7 +12,10 @@ def _xdg(var, default):
 
 def state_dir() -> Path:
     """Logs, pending error reports, update-check state."""
-    d = _xdg("XDG_STATE_HOME", ".local/state") / "talkpod-manager"
+    if sys.platform == "win32":
+        d = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData/Local") / "Talkpod Manager"
+    else:
+        d = _xdg("XDG_STATE_HOME", ".local/state") / "talkpod-manager"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

@@ -7,6 +7,7 @@ worker thread.
 
 import logging
 import os
+import sys
 import time
 
 # CHIRP redirects stdout/stderr into its own debug.log when it isn't run from a terminal;
@@ -65,15 +66,27 @@ class Port:
         return f"{self.device} — {self.description}"
 
 
+def _usb(p):
+    if sys.platform.startswith("linux"):
+        return p.device.startswith(("/dev/ttyUSB", "/dev/ttyACM"))
+    return p.vid is not None                    # Windows' COM ports: only USB ones have a vendor ID
+
+
+def _port_order(device):
+    """COM3 before COM10."""
+    digits = device.rstrip("0123456789")
+    return (digits, int(device[len(digits):] or 0))
+
+
 def find_ports():
     """USB serial ports, programming cables first."""
     ports = []
     for p in list_ports.comports():
-        if not (p.device.startswith("/dev/ttyUSB") or p.device.startswith("/dev/ttyACM")):
+        if not _usb(p):
             continue
         known = KNOWN_CABLES.get((p.vid, p.pid)) if p.vid is not None else None
         ports.append(Port(p.device, known or p.description or "USB serial", known is not None))
-    ports.sort(key=lambda p: (not p.known, p.device))
+    ports.sort(key=lambda p: (not p.known, _port_order(p.device)))
     return ports
 
 
@@ -81,6 +94,9 @@ def _open(port, baud=57600, timeout=0.5):
     try:
         return serial.Serial(port, baud, timeout=timeout)
     except serial.SerialException as e:
+        if sys.platform == "win32" and ("Access is denied" in str(e) or "PermissionError" in str(e)):
+            raise RadioError(f"{port} is in use by another program. Close CHIRP or any other radio software, "
+                             "then try again.") from e
         if "Permission denied" in str(e):
             raise RadioError(
                 f"No permission to open {port}. Add yourself to the 'dialout' group "

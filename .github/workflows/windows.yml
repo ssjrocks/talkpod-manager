@@ -1,0 +1,94 @@
+# The Windows build: runs the tests and renders every page with GTK on Windows, builds the app and its
+# setup program, starts the built app, and for a release adds the setup program to it (and its name
+# and SHA-256 to talkpod-manager.json, for the in-app updater).
+name: Windows
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: git
+          pacboy: >-
+            gtk4:p libadwaita:p python:p python-gobject:p python-pip:p python-setuptools:p
+            python-pyserial:p python-pillow:p python-requests:p python-pytest:p
+            pyinstaller:p pyinstaller-hooks-contrib:p
+
+      - name: Install CHIRP
+        run: |
+          chirp=$(python -c 'import tomllib; print(next(d for d in tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"] if d.startswith("chirp")))')
+          PIP_BREAK_SYSTEM_PACKAGES=1 python -m pip install -q --disable-pip-version-check "$chirp"
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: Render every page
+        run: |
+          version=$(python -c 'from talkpod_manager.firmware_catalog import TSF; print(TSF.version)')
+          python tools/screenshot.py tests/data/a36se-fw126-uhf-cb.img build/screenshots \
+              tools/screenshot-data/logo.png tools/screenshot-data/splash.gif "$version"
+
+      - name: Build
+        run: packaging/windows/build.sh
+
+      - name: Start the built app
+        shell: pwsh
+        run: |
+          $env:TALKPOD_MANAGER_NO_REPORTS = "1"
+          $img = Resolve-Path tests/data/a36se-fw126-uhf-cb.img
+          $p = Start-Process dist/TalkpodManager/TalkpodManager.exe -ArgumentList "`"$img`"" -PassThru
+          Start-Sleep -Seconds 30
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force build/smoke | Out-Null
+          $bmp.Save("$PWD/build/smoke/desktop.png")
+          Get-Content "$env:LOCALAPPDATA/Talkpod Manager/talkpod-manager.log"
+          if ($p.HasExited) { throw "Talkpod Manager exited with code $($p.ExitCode)" }
+          $p.Refresh()
+          "window: $($p.MainWindowTitle)"
+          Stop-Process -Id $p.Id
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: windows
+          path: |
+            dist/*-setup.exe
+            build/screenshots
+            build/smoke
+
+      - name: Add to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          $exe = Get-Item "dist/TalkpodManager-$($tag.TrimStart('v'))-setup.exe"   # fails if the tag isn't __version__
+          $sha = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          gh release download $tag -p talkpod-manager.json -D build/release --clobber
+          $info = Get-Content build/release/talkpod-manager.json -Raw | ConvertFrom-Json
+          $info | Add-Member -Force -NotePropertyName windows -NotePropertyValue @{ file = $exe.Name; sha256 = $sha }
+          $info | ConvertTo-Json -Compress | Set-Content build/release/talkpod-manager.json -Encoding utf8NoBOM
+          gh release upload $tag $exe.FullName build/release/talkpod-manager.json --clobber
+          "added $($exe.Name) (sha256 $sha) to $tag"

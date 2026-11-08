@@ -25,6 +25,7 @@ SUPER = sys.argv[5] if len(sys.argv) > 5 else None
 OUT.mkdir(parents=True, exist_ok=True)
 tmp = Path(tempfile.mkdtemp(prefix="tpm-shot-"))
 os.environ["XDG_STATE_HOME"] = str(tmp / "state")
+os.environ["LOCALAPPDATA"] = str(tmp / "state")      # the same on Windows
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 faulthandler.dump_traceback_later(120, exit=True)  # a hung run ends by itself
