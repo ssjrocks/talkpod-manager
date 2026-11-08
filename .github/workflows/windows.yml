@@ -49,12 +49,18 @@ jobs:
       - name: Build
         run: packaging/windows/build.sh
 
-      - name: Start the built app
+      - name: Install it, start it, and update it
         shell: pwsh
         run: |
-          $env:TALKPOD_MANAGER_NO_REPORTS = "1"
+          $env:TALKPOD_MANAGER_NO_REPORTS = "1"          # test runs send no error reports
+          $setup = (Get-Item dist/TalkpodManager-*-setup.exe).FullName
+          $s = Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru -Wait
+          if ($s.ExitCode -ne 0) { throw "setup exited with $($s.ExitCode)" }
+          $exe = "$env:LOCALAPPDATA\Programs\Talkpod Manager\TalkpodManager.exe"
+          if (-not (Test-Path $exe)) { throw "not installed at $exe" }
+
           $img = Resolve-Path tests/data/a36se-fw126-uhf-cb.img
-          $p = Start-Process dist/TalkpodManager/TalkpodManager.exe -ArgumentList "`"$img`"" -PassThru
+          $p = Start-Process $exe -ArgumentList "`"$img`"" -PassThru
           Start-Sleep -Seconds 30
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -67,6 +73,16 @@ jobs:
           $p.Refresh()
           "window: $($p.MainWindowTitle)"
           Stop-Process -Id $p.Id
+          Start-Sleep -Seconds 2
+
+          # what the in-app updater runs: the setup program must install over it and start the app again
+          $s = Start-Process $setup -ArgumentList "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/UPDATE=1" -PassThru -Wait
+          if ($s.ExitCode -ne 0) { throw "update setup exited with $($s.ExitCode)" }
+          Start-Sleep -Seconds 20
+          $again = Get-Process TalkpodManager -ErrorAction SilentlyContinue
+          if (-not $again) { throw "the app didn't start again after the update" }
+          "started again after the update: pid $($again.Id)"
+          $again | Stop-Process
 
       - uses: actions/upload-artifact@v7
         if: always()

@@ -113,6 +113,8 @@ def test_read_over_the_shell():
 
 @pytest.fixture
 def brisbane(monkeypatch):
+    if not hasattr(time, "tzset"):
+        pytest.skip("Windows can't switch time zones from inside a program")
     monkeypatch.setenv("TZ", "Australia/Brisbane")
     time.tzset()
     yield
@@ -138,10 +140,11 @@ def state(tmp_path, monkeypatch):
 
 def test_reports_are_kept_across_runs(state):
     now, events = eventlog.parse(DUMP)
-    first = eventlog.Report(1000.0, now, "1.22", events)
+    # read times in 2026: Windows can't put times in the first day of 1970 into local time
+    first = eventlog.Report(1_793_000_000.0, now, "1.22", events)
     assert eventlog.load() == []
     assert eventlog.keep(first) == [first]
-    second = eventlog.Report(2000.0, 5, "1.22", [])
+    second = eventlog.Report(1_793_000_600.0, 5, "1.22", [])
     assert eventlog.keep(second) == [first, second]
     assert eventlog.load() == [first, second]           # what a new run of the app reads
     assert second.lines()[1][0] == "(the log was empty)"
