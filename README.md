@@ -142,12 +142,12 @@ of it as text (to send with a problem report), clear the radio's log, and delete
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release; 1.25 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.26 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
 - **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
-  against the SHA-256 GitHub publishes with it. A copy of 1.25 comes with the app for use offline.
+  against the SHA-256 GitHub publishes with it. A copy of 1.26 comes with the app for use offline.
 - **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
   pinned in the app. A changed file is refused.
 - **Your own file:** "A firmware file" takes any `.kdhx`.
