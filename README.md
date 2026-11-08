@@ -1,5 +1,18 @@
 # Talkpod Manager
 
+> [!WARNING]
+> **Check the law before you transmit or change your radio's firmware.**
+> - Only transmit on frequencies you are licensed or otherwise permitted to use, and only with the
+>   power, bandwidth and modes that permission allows. This app programs transmit frequencies as you
+>   enter them; it doesn't check them against any licence.
+> - It can flash firmware ([Talkpod Super Firmware](https://github.com/ssjrocks/talkpod-super-firmware),
+>   VR2TE's builds) that transmits well outside the radio's approved bands. Transmitting where you
+>   aren't permitted can interfere with emergency, aviation and other services, and is illegal.
+> - In some jurisdictions radio equipment must keep its type approval (certification). Replacing the
+>   radio's firmware can void it, and merely having modified firmware running on a radio may be
+>   illegal, even if you never transmit. Check your local rules (for example ACMA in Australia, the FCC
+>   in the US, Ofcom in the UK) before flashing anything but the stock firmware.
+
 A desktop app for Ubuntu (GTK4 / libadwaita) to program, configure and back up **Talkpod A36SE**
 and **A36plus** handheld radios over the K-plug programming cable.
 
@@ -28,6 +41,9 @@ and **A36plus** handheld radios over the K-plug programming cable.
   [Talkpod Super Firmware](https://github.com/ssjrocks/talkpod-super-firmware) and VR2TE's "Super"
   builds of Talkpod's firmware, each downloaded from its author's GitHub and checked before it's
   sent. Any `.kdhx` file works too, and there are links to Talkpod's own firmware downloads.
+- **Follows the radio's firmware**: Read tells stock firmware, VR2TE's builds and each Super Firmware
+  version apart. The Settings page shows what that firmware uses, Super Firmware's own settings
+  included (tuning step, dual watch, messages, APRS, pager, scramble key), and greys out the rest.
 - **Event log** (Talkpod Super Firmware 1.22+): reads the radio's log of its last 128 receiver events
   (squelch, carriers, what muted the audio and why, data packets, transmissions), keeps every reading,
   and explains each line on hover. For when the radio does something odd.
@@ -142,7 +158,7 @@ of it as text (to send with a problem report), clear the radio's log, and delete
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release; 1.26 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, SSB receive, frequency scanner, wide transmit range with aviation and distress-beacon bands blocked, UV-K5-compatible messages, APRS, POCSAG, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.26 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, frequency scanner (FM, AM or Auto), SSB receive, squelch levels down to weak stations, UV-K5-compatible messages, APRS, POCSAG, Morse code, texts sent before recalled with FM, a receiver event log (read here), wide transmit range with aviation and distress-beacon bands blocked, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
@@ -200,9 +216,11 @@ python3 -m venv --system-site-packages .venv
 .venv/bin/pip install -e . pytest
 .venv/bin/python -m pytest              # no radio needed (uses a saved image and a simulated radio)
 .venv/bin/python -m talkpod_manager     # run from the checkout
-GDK_BACKEND=x11 xvfb-run -a tools/screenshot.py tests/data/a36se-fw126-uhf-cb.img /tmp/shots \
-    talkpod_manager/data/icons/hicolor/scalable/apps/io.github.ssjrocks.TalkpodManager.svg ANIMATION.gif
+tools/screenshots.sh                    # the README's screenshots, on a virtual display (xvfb-run)
 ```
+
+`tools/screenshots.sh` renders `docs/screenshots` from the test image, as read from a radio with the
+bundled Super Firmware, with the sample logo, animation and event log in `tools/screenshot-data`.
 
 Releases: bump `__version__` in `talkpod_manager/__init__.py`, commit, then
 `scripts/release.sh NOTES.md`.
