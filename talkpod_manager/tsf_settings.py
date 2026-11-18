@@ -7,7 +7,8 @@ CRC-16/XMODEM of the first 30 bytes. The newest valid record wins; an older, sho
 fills the start, and the rest keeps the firmware's defaults. An area changed here is written as a
 fresh log: that one record, the rest erased.
 
-The payloads are the firmware's structs (saved_t in src/ui.c, aprs.h, pocsag.h, roll.h).
+The payloads are the firmware's structs (saved_t in src/ui.c, pocsag.h, roll.h). The second area was
+APRS's until firmware 1.32; 1.33 removed APRS, and the app leaves that area alone.
 """
 
 import os
@@ -20,7 +21,7 @@ from chirp.settings import (RadioSetting, RadioSettingGroup, RadioSettingValueBo
 
 BASE, SECTOR, REC, MAGIC, PAYLOAD = 0x4000, 0x1000, 32, 0xA36C, 26
 END = BASE + 4 * SECTOR
-MAIN, APRS, PAGER, SCRAMBLE = range(4)
+MAIN, UNUSED, PAGER, SCRAMBLE = range(4)     # UNUSED: APRS's, until firmware 1.32
 FIRST_VERSION = (1, 13)
 STOCK_VERSION = (1, 14)             # from here it uses the stock settings too (radio.Firmware.stock_blocks)
 PREFIX = "tsf_"
@@ -30,9 +31,7 @@ STEPS = ["2.5 kHz", "5 kHz", "6.25 kHz", "10 kHz", "12.5 kHz", "25 kHz", "100 kH
 BACKLIGHT = ["Always on", "10 s", "30 s", "60 s"]
 TOT = ["Off", "30 s", "60 s", "2 min", "3 min", "5 min"]
 MSG_SPEED = ["1200 bit/s", "700 bit/s", "450 bit/s"]
-APRS_PATH = ["None", "WIDE1-1", "WIDE2-1", "WIDE1-1, WIDE2-1"]
 PAGER_SPEED = ["512 bit/s", "1200 bit/s", "2400 bit/s"]
-CALL_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
 TEXT_CHARS = "".join(chr(c) for c in range(32, 127))
 
 # saved_t: two slots (u8 is_channel, u8 flags, u16 channel, u32 vfo), then u8 selected, dual, squelch,
@@ -43,10 +42,9 @@ TEXT_CHARS = "".join(chr(c) for c in range(32, 127))
 MAIN_FMT = "<BBHIBBHI9B"
 MAIN_DEFAULT = struct.pack(MAIN_FMT, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 4, 2, 3, 4, 0, 0)
 MOVED_TO_STOCK = ("squelch", "dual", "backlight", "tot", "beep", "voice")
-APRS_FMT, APRS_DEFAULT = "<10sB15s", struct.pack("<10sB15s", b"", 1, b"A36SE CFW")
 PAGER_FMT, PAGER_DEFAULT = "<IBB", struct.pack("<IBB", 1234567, 1, 0)
 KEY_FMT, KEY_DEFAULT = "<15s", bytes(15)
-DEFAULTS = {MAIN: MAIN_DEFAULT, APRS: APRS_DEFAULT, PAGER: PAGER_DEFAULT, SCRAMBLE: KEY_DEFAULT}
+DEFAULTS = {MAIN: MAIN_DEFAULT, PAGER: PAGER_DEFAULT, SCRAMBLE: KEY_DEFAULT}
 
 
 def crc16(b):
@@ -106,7 +104,6 @@ def values(radio):
     data = _image(radio)
     m = list(struct.unpack(MAIN_FMT, _payload(data, MAIN)))
     selected, dual, squelch, step, backlight, sounds, tot, msg = m[8:16]
-    call, path, text = struct.unpack(APRS_FMT, _payload(data, APRS))
     ric, pspeed, pinvert = struct.unpack(PAGER_FMT, _payload(data, PAGER))
     (key,) = struct.unpack(KEY_FMT, _payload(data, SCRAMBLE))
 
@@ -123,9 +120,6 @@ def values(radio):
         "msg_receipts": not msg & 4,
         "beep": bool(sounds & 1),
         "voice": bool(sounds & 2),
-        "aprs_call": _text(call),
-        "aprs_path": pick(path, APRS_PATH, 1),
-        "aprs_text": _text(text),
         "pager_ric": ric if ric < 1 << 21 else 1234567,
         "pager_speed": pick(pspeed, PAGER_SPEED, 1),
         "pager_invert": bool(pinvert),
@@ -144,9 +138,6 @@ FIELDS = {
     "voice": ("Voice", MAIN, "bool", None),
     "msg_speed": ("Message speed", MAIN, "list", MSG_SPEED),
     "msg_receipts": ("Message receipts", MAIN, "bool", None),
-    "aprs_call": ("APRS callsign", APRS, "text", (9, CALL_CHARS)),
-    "aprs_path": ("APRS path", APRS, "list", APRS_PATH),
-    "aprs_text": ("APRS beacon text", APRS, "text", (14, TEXT_CHARS)),
     "pager_ric": ("Pager RIC", PAGER, "int", (0, (1 << 21) - 1)),
     "pager_speed": ("Pager speed", PAGER, "list", PAGER_SPEED),
     "pager_invert": ("Pager invert", PAGER, "bool", None),
@@ -208,9 +199,6 @@ def apply(radio, setting, fw=None):
             m[8 + 6] = TOT.index(v["tot"])
         m[16] = int(moved)
         payload = struct.pack(MAIN_FMT, *m)[:25 if moved else 24]
-    elif area == APRS:
-        payload = struct.pack(APRS_FMT, v["aprs_call"].upper().encode(), APRS_PATH.index(v["aprs_path"]),
-                              v["aprs_text"].encode())
     elif area == PAGER:
         payload = struct.pack(PAGER_FMT, int(v["pager_ric"]), PAGER_SPEED.index(v["pager_speed"]),
                               int(v["pager_invert"]))

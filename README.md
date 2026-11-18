@@ -43,7 +43,7 @@ and **A36plus** handheld radios over the K-plug programming cable.
   sent. Any `.kdhx` file works too, and there are links to Talkpod's own firmware downloads.
 - **Follows the radio's firmware**: Read tells stock firmware, VR2TE's builds and each Super Firmware
   version apart. The Settings page shows what that firmware uses, Super Firmware's own settings
-  included (tuning step, dual watch, messages, APRS, pager, scramble key), and greys out the rest.
+  included (tuning step, dual watch, messages, pager, scramble key), and greys out the rest.
 - **Event log** (Talkpod Super Firmware 1.22+): reads the radio's log of its last 128 receiver events
   (squelch, carriers, what muted the audio and why, data packets, transmissions), keeps every reading,
   and explains each line on hover. For when the radio does something odd.
@@ -68,7 +68,7 @@ The app shows which firmware it read and greys out what that firmware doesn't us
 - Super Firmware 1.14 and later use the stock settings, apart from the few greyed out. Before that it
   ignored them, along with channel encryption (used from 1.16) and PTT-ID (from 1.14);
 - it keeps some settings of its own as well. From 1.13 they're on the Settings page (step, dual watch,
-  backlight, messages, APRS, pager, scramble key and so on), and Read and Write carry them like the
+  backlight, messages, pager, scramble key and so on), and Read and Write carry them like the
   channels.
 
 The radio protocol and memory layout come from CHIRP's `mml_jc8810` driver, which this app uses as
@@ -176,12 +176,12 @@ of it as text (to send with a problem report), clear the radio's log, and delete
 
 | Build | From | What it is |
 |---|---|---|
-| **Talkpod Super Firmware** (newest release; 1.32 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, frequency scanner (FM, AM or Auto), SSB receive, squelch levels down to weak stations, UV-K5-compatible messages, APRS, POCSAG, Morse code, texts sent before recalled with FM, a receiver event log (read here), wide transmit range with aviation and distress-beacon bands blocked, boot animation |
+| **Talkpod Super Firmware** (newest release; 1.33 comes with the app) | [ssjrocks/talkpod-super-firmware](https://github.com/ssjrocks/talkpod-super-firmware) | New firmware written from scratch, with the stock settings: dual-watch interface, frequency scanner (FM, AM or Auto), SSB receive, squelch levels down to weak stations, UV-K5-compatible messages, POCSAG paging, Morse code, texts sent before recalled with FM, a receiver event log (read here), wide transmit range with aviation and distress-beacon bands blocked, boot animation |
 | **VR2TE Super 1.22S** (international) and **1.20S** (GMRS) | [VR2TE/Talkpod-A36plus-Firmware](https://github.com/VR2TE/Talkpod-A36plus-Firmware/tree/main/A36plus) | Talkpod's own firmware with wider ranges: TX 18–108, 136–350, 390–630 MHz; RX 18–660, 840–999 MHz (switch on holding PTT and 8) |
 
 No third-party firmware is copied into this app.
 - **Talkpod Super Firmware:** the dialog downloads the newest release from GitHub and checks it
-  against the SHA-256 GitHub publishes with it. A copy of 1.32 comes with the app for use offline.
+  against the SHA-256 GitHub publishes with it. A copy of 1.33 comes with the app for use offline.
 - **VR2TE's builds:** fetched from a fixed commit of their repository, and must match checksums
   pinned in the app. A changed file is refused.
 - **Your own file:** "A firmware file" takes any `.kdhx`.

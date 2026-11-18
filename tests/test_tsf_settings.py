@@ -30,9 +30,9 @@ def test_an_image_without_them_shows_the_firmwares_defaults(image):
     v = ts.values(image)
     assert (v["squelch"], v["step"], v["dual"], v["backlight"], v["tot"]) == (1, "12.5 kHz", True, "30 s", "3 min")
     assert (v["msg_speed"], v["msg_receipts"], v["beep"], v["voice"]) == ("1200 bit/s", True, True, True)
-    assert (v["aprs_call"], v["aprs_path"], v["aprs_text"]) == ("", "WIDE1-1", "A36SE CFW")
     assert (v["pager_ric"], v["pager_speed"], v["scramble_key"]) == (1234567, "1200 bit/s", "")
-    assert len(ts.group(image)) == len(ts.FIELDS) == 16
+    assert len(ts.group(image)) == len(ts.FIELDS) == 13
+    assert not any(name.startswith("aprs") for name in ts.FIELDS)     # removed in firmware 1.33
 
 
 def test_a_change_writes_its_area_as_one_fresh_record(image):
@@ -68,16 +68,20 @@ def test_the_newest_record_wins_and_slots_are_kept(image):
 
 
 def test_text_settings(image):
-    change(image, "aprs_call", "VK2ABC-7")
-    change(image, "aprs_text", "hello there")
     change(image, "scramble_key", "our key")
     change(image, "pager_ric", 99)
     v = ts.values(image)
-    assert (v["aprs_call"], v["aprs_text"], v["scramble_key"], v["pager_ric"]) == ("VK2ABC-7", "hello there",
-                                                                                  "our key", 99)
-    assert v["aprs_path"] == "WIDE1-1"                  # the rest of the area keeps its value
+    assert (v["scramble_key"], v["pager_ric"]) == ("our key", 99)
+    assert v["pager_speed"] == "1200 bit/s"             # the rest of the area keeps its value
     with pytest.raises(Exception):
-        setting(ts.group(image), "aprs_call").value.set_value("too-long-call")
+        setting(ts.group(image), "scramble_key").value.set_value("a key that is far too long")
+
+
+def test_the_old_aprs_area_is_left_alone(image):
+    old = bytes(range(32))
+    image.get_mmap().set(ts.BASE + ts.UNUSED * ts.SECTOR, old)
+    change(image, "pager_ric", 42)
+    assert image.get_mmap().get_packed()[ts.BASE + ts.SECTOR:ts.BASE + ts.SECTOR + 32] == old
 
 
 def test_the_scanner_range_behind_the_key_survives_a_new_key(image):
