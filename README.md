@@ -155,9 +155,9 @@ a signal there, a channel that stays quiet), plug in the cable **without switchi
 open **Event log…** from the main menu and press the read button. Switching the radio off clears its
 log.
 
-Every reading is kept (in `~/.local/state/talkpod-manager/event-logs.json`) and shown in one text
-field, oldest first: a header with when it was read, then each event with the date and time it
-happened, in this computer's time zone. Hover over a line for what it means. The buttons copy all
+Every reading is kept (in `~/.local/state/talkpod-manager/event-logs.json`, on Windows
+`%LOCALAPPDATA%\Talkpod Manager\event-logs.json`) and shown in one text field, oldest first: a
+header with when it was read, then each event with the date and time it happened, in this computer's time zone. Hover over a line for what it means. The buttons copy all
 of it as text (to send with a problem report), clear the radio's log, and delete the saved ones.
 
 ### Cable trouble
@@ -172,7 +172,7 @@ of it as text (to send with a problem report), clear the radio's log, and delete
 ## Firmware
 
 **Flash firmware…** in the main menu flashes over the programming cable, the way Talkpod's Windows
-"KDH Bootloader" tool does it (no Windows needed). Choose one of these ready-to-flash builds:
+"KDH Bootloader" tool does it, on Linux as on Windows. Choose one of these ready-to-flash builds:
 
 | Build | From | What it is |
 |---|---|---|
